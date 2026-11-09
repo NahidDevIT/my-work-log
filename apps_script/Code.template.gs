@@ -230,12 +230,14 @@ function renderView(rows, o) {
   if (live) {
     banner = '<div class="pc on"><div><b>● My PC is on</b><span id="pcmsg">Open the live dashboard — works on the same Wi-Fi</span></div>' +
       '<a class="go" id="go" href="' + esc(live) + '" target="_top">Open live dashboard</a></div>' +
-      '<script>(function(){var ip=' + js(pc.ip) + ',u=' + js(live) + ';if(!ip||!window.fetch)return;' +
-      'fetch("https://api.ipify.org?format=json").then(function(r){return r.json()}).then(function(j){if(j&&j.ip===ip){' +
-      'document.getElementById("pcmsg").textContent="You are on the same Wi-Fi — tap to open the live dashboard";' +
-      'document.getElementById("go").className="go pulse";' +
-      // most browsers only allow leaving this Google page after a tap; try anyway for those that allow it
-      'try{window.top.location.href=u}catch(e){}}}).catch(function(){})})();</script>';
+      '<script>(function(){var ip=' + js(pc.ip) + ',u=' + js(live) + ',tried=false;if(!ip||!window.fetch)return;' +
+      'function check(){fetch("https://api.ipify.org?format=json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){' +
+      'var same=j&&j.ip===ip,m=document.getElementById("pcmsg"),g=document.getElementById("go");' +
+      'm.textContent=same?"You are on the same Wi-Fi — tap to open the live dashboard":"Open the live dashboard — works on the same Wi-Fi";' +
+      'g.className=same?"go pulse":"go";' +
+      // most browsers only allow leaving this Google page after a tap; try once anyway for those that allow it
+      'if(same&&!tried){tried=true;try{window.top.location.href=u}catch(e){}}}).catch(function(){})}' +
+      'check();setInterval(check,20000);window.addEventListener("online",check)})();</script>';
   } else if (pc.online) {
     banner = '<div class="pc on"><div><b>● My PC is on</b><span>Turn on “Open on my phone” in the dashboard to open it live from here</span></div></div>';
   } else {

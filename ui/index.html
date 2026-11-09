@@ -502,6 +502,28 @@ function tick(){
   $("#cdBar").style.width=`${Math.min(100,worked/total*100).toFixed(2)}%`;
 }
 tick(); setTimeout(()=>{tick(); setInterval(tick,1000)}, 1000-new Date().getMilliseconds());
+/* On a phone: if this PC stops answering (switched to mobile data, PC off), go to my phone link —
+   it shows my saved work from the Google Sheet. */
+const FALLBACK="wl_phone_link";
+let pingFails=0, pinging=false;
+async function pcReachable(){
+  const ctrl=new AbortController(), t=setTimeout(()=>ctrl.abort(),4000);
+  try{ const r=await fetch("/api/ping?"+Date.now(),{cache:"no-store",signal:ctrl.signal}); return r.ok }
+  catch{ return false } finally{ clearTimeout(t) }
+}
+async function watchPC(){
+  if(pinging || S.status?.remote?.viewer_local!==false) return;       // only on other devices, never on this PC
+  pinging=true;
+  try{
+    if(await pcReachable()){ pingFails=0; return }
+    if(++pingFails>=2){ const u=ls.get(FALLBACK); if(u){ toast("This PC can't be reached — opening my saved work","phone"); setTimeout(()=>location.replace(u),600) } }
+  } finally { pinging=false }
+}
+setInterval(watchPC, 5000);
+window.addEventListener("online", ()=>{ pingFails=1; watchPC() });     // network changed → check now
+window.addEventListener("offline", ()=>{ pingFails=1 });
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") watchPC() });
+
 setInterval(()=>{ if(document.visibilityState==="visible" && !S.edit && !$("#addDlg").open) refreshAll() }, 5*60e3);   // keep today's activity fresh
 
 /* Save my day now (top-right) */
@@ -923,6 +945,7 @@ async function refreshAll(){
   const t=today(), end = S.date>=addDays(t,-3) ? t : addDays(S.date,3);
   const [st, day, over] = await Promise.all([api("/api/status"), api("/api/day?date="+S.date), api("/api/overview?date="+end)]);
   S.status=st; S.day=day; S.over=over; buildGroups(st.groups);
+  if(st.remote?.viewer_local===false && st.phone_link) ls.set(FALLBACK, st.phone_link);
   renderHeader(); renderAuto(); renderWeek(); renderHero(); renderTabs();
 }
 $("#prev").onclick=()=>openDay(addDays(S.date,-1));

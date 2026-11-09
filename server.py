@@ -529,6 +529,8 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         path, _, qs = self.path.partition("?")
         q = dict(p.split("=", 1) for p in qs.split("&") if "=" in p)
+        if path == "/api/ping":
+            return self.send(200, {"ok": True})
         if path == "/login":
             if self.authed():
                 return self.send(302, b"", "text/plain", {"Location": "/"})
@@ -541,7 +543,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, list_dates())
         if path == "/api/status":
             local = self.is_local()
-            return self.send(200, {**status(), "remote": remote_status(local), "view_url": view_url() if local else ""})
+            return self.send(200, {**status(), "remote": remote_status(local), "view_url": view_url() if local else "",
+                                   "phone_link": view_url()})
         if path == "/api/overview":
             d = self.date_ok(q.get("date"))
             return d and self.send(200, overview(d))
