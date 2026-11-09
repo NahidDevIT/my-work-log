@@ -232,8 +232,10 @@ function renderView(rows, o) {
       '<a class="go" id="go" href="' + esc(live) + '" target="_top">Open live dashboard</a></div>' +
       '<script>(function(){var ip=' + js(pc.ip) + ',u=' + js(live) + ';if(!ip||!window.fetch)return;' +
       'fetch("https://api.ipify.org?format=json").then(function(r){return r.json()}).then(function(j){if(j&&j.ip===ip){' +
-      'document.getElementById("pcmsg").textContent="Same network — opening the live dashboard…";' +
-      'setTimeout(function(){try{window.top.location.href=u}catch(e){}},700)}}).catch(function(){})})();</script>';
+      'document.getElementById("pcmsg").textContent="You are on the same Wi-Fi — tap to open the live dashboard";' +
+      'document.getElementById("go").className="go pulse";' +
+      // most browsers only allow leaving this Google page after a tap; try anyway for those that allow it
+      'try{window.top.location.href=u}catch(e){}}}).catch(function(){})})();</script>';
   } else if (pc.online) {
     banner = '<div class="pc on"><div><b>● My PC is on</b><span>Turn on “Open on my phone” in the dashboard to open it live from here</span></div></div>';
   } else {
@@ -262,6 +264,8 @@ function renderView(rows, o) {
     '.pc{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 0;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--panel)}' +
     '.pc b{display:block;font-size:14px}.pc span{font-size:12.5px;color:var(--mut)}.pc.on{border-color:color-mix(in srgb,var(--ok) 45%,transparent)}.pc.on b{color:var(--ok)}' +
     '.pc.off b{color:var(--mut)}.go{display:inline-block;background:var(--ok);color:#05140e;font-weight:700;text-decoration:none;padding:10px 14px;border-radius:11px}' +
+    '.go.pulse{display:block;width:100%;text-align:center;font-size:16px;padding:14px;animation:pl 1.6s ease-in-out infinite}' +
+    '@keyframes pl{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.55)}50%{box-shadow:0 0 0 8px rgba(16,185,129,0)}}' +
     '</style></head><body><div class="wrap"><header><h1>' + esc(o.name || 'My Work Log') + '</h1><p>' +
     esc([o.role, 'updated ' + o.generated].filter(Boolean).join(' · ')) + '</p></header>' + banner +
     '<div class="sum"><div><b>' + wk.tasks + '</b><span>tasks · last 7 days</span></div><div><b class="okc">' + hm(wk.total) +
