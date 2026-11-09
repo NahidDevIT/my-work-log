@@ -790,13 +790,52 @@ function bindPhoneCard(){
     set(e.currentTarget," Saving…",{password:pw},"Password changed — other devices must sign in again"); };
   $$(".rCopy").forEach(b=>b.onclick=async()=>{ try{await navigator.clipboard.writeText(b.dataset.u);toast("Link copied","copy")}catch{prompt("Copy this link:",b.dataset.u)} });
   const fw=$("#fwCopy"); if(fw) fw.onclick=async()=>{ try{await navigator.clipboard.writeText($("#fwCmd").textContent);toast("Copied — paste it into a terminal","copy")}catch{} };
-  const qr=$("#rQr"), url=(r.urls||[])[0];
-  if(!qr) return;
-  if(!url){ qr.style.display="none"; return; }
-  const draw=()=>{ qr.textContent=""; new QRCode(qr,{text:url,width:150,height:150,correctLevel:QRCode.CorrectLevel.M}); };
+  drawQR($("#rQr"), (r.urls||[])[0]);
+  bindViewCard();
+}
+function drawQR(el, url){
+  if(!el) return;
+  if(!url){ el.style.display="none"; return; }
+  const draw=()=>{ el.textContent=""; new QRCode(el,{text:url,width:150,height:150,correctLevel:QRCode.CorrectLevel.M}); };
   if(window.QRCode) return draw();
-  const sc=document.createElement("script"); sc.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
-  sc.onload=draw; sc.onerror=()=>{ qr.style.display="none"; }; document.head.appendChild(sc);
+  const old=document.querySelector("script[data-qr]");
+  if(old){ old.addEventListener("load",draw); return; }
+  const sc=document.createElement("script"); sc.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.dataset.qr="1";
+  sc.onload=draw; sc.onerror=()=>{ el.style.display="none"; }; document.head.appendChild(sc);
+}
+
+/* Phone view — read-only page served by the Google Sheet's script, works when this PC is off */
+function viewCard(st){
+  if(!st.remote?.viewer_local) return "";
+  const box=c=>`<div class="card" id="viewCard" style="grid-column:1/-1"><h4>${ic("globe","sm")}Phone view — works when the PC is off</h4>${c}</div>`;
+  if(!st.sheet_sync) return box(`<p style="color:var(--text-2);margin:0">Connect the Google Sheet first (below) — the phone view is served by the sheet's script.</p>`);
+  if(!st.view_url) return box(`<p style="color:var(--text-2);margin:0 0 12px">A read-only page of my days, tasks and hours, straight from my Google Sheet — open it on my phone from anywhere, even when this PC is off. Only people with the secret link can open it.</p>
+    <div id="viewMsg"></div><button class="btn primary" id="viewMake">${ic("globe","sm")}Create my phone link</button>`);
+  return box(`<div class="phgrid"><div>
+      <div class="where" style="margin:0 0 6px">Open on my phone (any network, PC on or off) — keep this link private:</div>
+      <div class="toolbar" style="margin:0 0 8px"><code style="flex:1;min-width:200px;padding:9px 11px;word-break:break-all;font-size:12.5px" id="viewUrl">${esc(st.view_url)}</code></div>
+      <div class="toolbar" style="margin:0"><button class="btn" id="viewCopy">${ic("copy","sm")}Copy link</button>
+        <a class="btn" href="${esc(st.view_url)}" target="_blank" rel="noopener">${ic("ext","sm")}Open</a>
+        <button class="btn ghost" id="viewNew" data-tip="The old link stops working">New link</button></div>
+      <p style="color:var(--muted);font-size:12.5px;margin:10px 0 0">${ic("info","sm")} Read-only: it shows what is in the sheet (updated when I save my day / shut down). Nobody can change anything with it.</p>
+    </div><div id="vQr" class="qrbox" aria-label="QR code of the phone view link"></div></div>`);
+}
+function bindViewCard(){
+  const st=S.status;
+  const make=async(btn,rotate)=>busy(btn,rotate?" Making a new link…":" Creating…",async()=>{
+    const r=await api("/api/view-link",{rotate});
+    if(r.ok){ st.view_url=r.url; st.script_version=Math.max(st.script_version||0,4); toast(rotate?"New link ready — the old one no longer works":"Phone link ready","globe"); return renderTabs(); }
+    if(r.error==="update_script"){ const m=$("#viewMsg"); if(m) m.innerHTML=`<div class="warn" style="margin:0 0 6px">${ic("alert","sm")} Update the script in my sheet once (it adds the phone view):</div>
+      <ol class="steps" style="font-size:13px;margin:0 0 12px"><li><button class="btn" id="vCopyScript">${ic("copy","sm")}Copy script</button></li>
+      <li>In the sheet: <b>Extensions → Apps Script</b> → select all, paste over the old code → <b>Save</b>.</li>
+      <li><b>Deploy → Manage deployments</b> → pencil icon → Version: <b>New version</b> → <b>Deploy</b>.</li>
+      <li>Come back and press <b>Create my phone link</b> again.</li></ol>`;
+      const c=$("#vCopyScript"); if(c) c.onclick=()=>$("#copyScript").click(); return; }
+    throw new Error(r.error||"Could not create the link"); });
+  const mk=$("#viewMake"); if(mk) mk.onclick=e=>make(e.currentTarget,false);
+  const nw=$("#viewNew"); if(nw) nw.onclick=e=>{ if(confirm("Make a new link? The old link will stop working.")) make(e.currentTarget,true); };
+  const cp=$("#viewCopy"); if(cp) cp.onclick=async()=>{ try{await navigator.clipboard.writeText(st.view_url);toast("Link copied — keep it private","copy")}catch{prompt("Copy this link:",st.view_url)} };
+  drawQR($("#vQr"), st.view_url);
 }
 
 /* Settings & help */
@@ -817,6 +856,7 @@ function renderSettings(){
       <dt>Sheet sync</dt><dd>${st.sheet_sync?yes("connected"):no("not set up yet")}</dd>
       <dt>Last run</dt><dd>${st.last_run?esc(Object.entries(st.last_run.steps).map(([k,v])=>`${k}: ${v}`).join(" · ")):"none yet"}</dd></dl></div>
     ${phoneCard(st)}
+    ${viewCard(st)}
     <div class="card" style="grid-column:1/-1"><h4>${ic("zap","sm")}${st.shutdown_hook?.active?"Save at shutdown is installed":"Save my day at shutdown (one time)"}</h4>
       ${st.shutdown_hook?.active?`<p style="color:var(--text-2);margin:0">Turning the PC off saves my day to the sheet${st.mail?.enabled?" and emails it":""}. To remove everything, run the installer again with <code>${st.platform==="windows"?"-Uninstall":"--uninstall"}</code>.</p>`:
       `<p style="color:var(--text-2);margin:0 0 10px">${st.platform==="windows"?"Run the installer once (it asks for administrator permission):":"Open a terminal and run the installer once (it asks for my password):"}</p>
@@ -853,8 +893,8 @@ function renderSettings(){
     api("/api/script-version",{}).then(r=>{ if(!$("#scriptVer")) return;
       if(r.version && r.version!==st.script_version){ st.script_version=r.version; }
       el.innerHTML = !r.ok ? `<span class="warn">${ic("alert","sm")} Could not reach the script in my sheet.</span> <button class="btn" id="recheck">${ic("refresh","sm")}Check again</button>`
-        : r.version>=3 ? `<span class="ok">${ic("check","sm")} Up to date — email and the “Total Working Hours” column are ready.</span>`
-        : `<span class="warn" style="display:block;margin-bottom:6px">${ic("alert","sm")} ${r.version>=2?"Email works. To fill column C “Total Working Hours”, update the script in my sheet once:":"Email is not ready: my sheet still runs the old script. Update it once:"}</span>
+        : r.version>=4 ? `<span class="ok">${ic("check","sm")} Up to date — email, the “Total Working Hours” column and the phone view are ready.</span>`
+        : `<span class="warn" style="display:block;margin-bottom:6px">${ic("alert","sm")} ${r.version>=3?"Email and column C work. Update the script once more to add the phone view (works when the PC is off):":r.version>=2?"Email works. To fill column C “Total Working Hours” and add the phone view, update the script in my sheet once:":"Email is not ready: my sheet still runs the old script. Update it once:"}</span>
            <ol class="steps" style="font-size:13px;margin:0 0 10px">
              <li><button class="btn" id="copyScript2">${ic("copy","sm")}Copy script</button></li>
              <li>In the sheet: <b>Extensions → Apps Script</b> → select all, paste over the old code → <b>Save</b>.</li>

@@ -320,7 +320,15 @@ def run_py(*args, timeout=900):
 # ---------------------------------------------------------------- open on my phone (other devices)
 REMOTE = HERE / "remote.json"
 _fails = defaultdict(list)
-LOCAL_ONLY = {"/api/apps-script", "/api/webhook", "/api/remote", "/api/mail-settings"}
+LOCAL_ONLY = {"/api/apps-script", "/api/webhook", "/api/remote", "/api/mail-settings", "/api/view-link"}
+
+
+def view_url():
+    """Read-only phone page served by the sheet's script (works when this PC is off)."""
+    h = read_json(HERE / "sheet_webhook.json") or {}
+    if h.get("url") and h.get("view_key") and int(h.get("script_version") or 0) >= 4:
+        return f"{h['url']}?k={h['view_key']}"
+    return ""
 
 
 def remote_cfg():
@@ -481,7 +489,8 @@ class H(BaseHTTPRequestHandler):
         if path == "/api/dates":
             return self.send(200, list_dates())
         if path == "/api/status":
-            return self.send(200, {**status(), "remote": remote_status(self.is_local())})
+            local = self.is_local()
+            return self.send(200, {**status(), "remote": remote_status(local), "view_url": view_url() if local else ""})
         if path == "/api/overview":
             d = self.date_ok(q.get("date"))
             return d and self.send(200, overview(d))
@@ -531,6 +540,34 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, {"ok": True}, headers={"Set-Cookie": "wl_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"})
         if not self.gate(self.path):
             return
+
+        if self.path == "/api/view-link":                   # create / replace the phone-view link (this PC only)
+            sys.path.insert(0, str(HERE))
+            from push import call, hook
+            if not hook():
+                return self.send(400, {"error": "Connect the Google Sheet first"})
+            try:
+                ver = int(call({"action": "ping"}).get("version") or 1)
+            except Exception as e:
+                return self.send(200, {"ok": False, "error": f"Could not reach the sheet script: {e}"})
+            h = read_json(HERE / "sheet_webhook.json") or {}
+            h["script_version"] = ver
+            if ver < 4:
+                (HERE / "sheet_webhook.json").write_text(json.dumps(h, indent=2), encoding="utf-8")
+                return self.send(200, {"ok": False, "error": "update_script", "version": ver})
+            key = h.get("view_key") if h.get("view_key") and not body.get("rotate") else secrets.token_urlsafe(24)
+            c = cfg()
+            r = call({"action": "set_view_key", "key": key, "name": c["owner"].get("name", ""),
+                      "role": c["owner"].get("role", ""), "workday_hours": c["automation"].get("workday_hours", 8)})
+            if not r.get("ok"):
+                return self.send(200, {"ok": False, "error": r.get("error") or "The sheet script refused the link"})
+            h["view_key"] = key
+            (HERE / "sheet_webhook.json").write_text(json.dumps(h, indent=2), encoding="utf-8")
+            try:
+                os.chmod(HERE / "sheet_webhook.json", 0o600)
+            except OSError:
+                pass
+            return self.send(200, {"ok": True, "url": view_url()})
 
         if self.path == "/api/remote":                      # turn "open on my phone" on/off (this PC only)
             r = remote_cfg()

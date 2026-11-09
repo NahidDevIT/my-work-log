@@ -96,6 +96,14 @@ The card then shows the link (e.g. `http://192.168.1.20:8765`) and a QR code —
   and phone access itself can only be changed on the PC.
 * **Turn off** puts the dashboard back to *this PC only*.
 
+## Phone view — works when the PC is off
+
+Dashboard → **Settings & help** → **Phone view** → **Create my phone link**. You get a private link
+(and QR code) to a read-only, mobile page served by your Google Sheet's script: last-7-days totals and,
+for every day, *Total · Start · End · Extra* and all tasks — straight from the sheet, from any network,
+PC on or off. Only people with the link can open it; **New link** replaces it (the old one stops working).
+Needs the sheet script **version 4** (the card shows the 1-minute update if yours is older).
+
 ## Settings — `config.yaml`
 
 Created by the installer from [`config.example.yaml`](config.example.yaml). The useful bits:
