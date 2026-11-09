@@ -4,11 +4,12 @@
 Run:  python3 server.py        then open http://127.0.0.1:8765
 Binds to localhost only: raw activity logs never leave this machine.
 """
-import base64, json, os, re, subprocess, sys, threading, time, uuid
+import base64, hashlib, hmac, json, os, re, secrets, socket, subprocess, sys, threading, time, uuid
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlparse
 
 from common import HERE, IS_WIN, boot_time, boots, cfg, install_command, platform_name, read_json, \
     safety_nets_status, shutdown_hook_status
@@ -316,17 +317,157 @@ def run_py(*args, timeout=900):
 
 
 # ---------------------------------------------------------------- http
+# ---------------------------------------------------------------- open on my phone (other devices)
+REMOTE = HERE / "remote.json"
+_fails = defaultdict(list)
+LOCAL_ONLY = {"/api/apps-script", "/api/webhook", "/api/remote", "/api/mail-settings", "/api/view-link"}
+
+
+def view_url():
+    """Read-only phone page served by the sheet's script (works when this PC is off)."""
+    h = read_json(HERE / "sheet_webhook.json") or {}
+    if h.get("url") and h.get("view_key") and int(h.get("script_version") or 0) >= 4:
+        return f"{h['url']}?k={h['view_key']}"
+    return ""
+
+
+def remote_cfg():
+    r = read_json(REMOTE) or {}
+    if not r.get("secret"):
+        r["secret"] = secrets.token_hex(32)
+        save_remote(r)
+    return r
+
+
+def save_remote(r):
+    REMOTE.write_text(json.dumps(r, indent=2), encoding="utf-8")
+    try:
+        os.chmod(REMOTE, 0o600)
+    except OSError:
+        pass
+
+
+def hash_pw(pw, salt):
+    return hashlib.pbkdf2_hmac("sha256", pw.encode(), bytes.fromhex(salt), 200_000).hex()
+
+
+def _sig(r, exp):
+    # the password hash is part of the signature: changing the password signs everybody out
+    return hmac.new(bytes.fromhex(r["secret"]), f"{exp}.{r.get('hash', '')[:16]}".encode(), "sha256").hexdigest()
+
+
+def new_session(r, days=30):
+    exp = int(time.time()) + days * 86400
+    return f"{exp}.{_sig(r, exp)}"
+
+
+def session_ok(r, tok):
+    try:
+        exp, sig = tok.split(".", 1)
+        return int(exp) > time.time() and hmac.compare_digest(sig, _sig(r, int(exp)))
+    except Exception:
+        return False
+
+
+def lan_ips():
+    ips = []
+    try:                                     # the address this PC uses on the local network (no packet is sent)
+        u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        u.connect(("10.255.255.255", 1))
+        ips.append(u.getsockname()[0])
+        u.close()
+    except OSError:
+        pass
+    try:                                     # Tailscale (reachable from anywhere on my own tailnet)
+        out = subprocess.run(["tailscale", "ip", "-4"], capture_output=True, text=True, timeout=5).stdout.split()
+        ips += [ip for ip in out if ip.startswith("100.")]
+    except Exception:
+        pass
+    return [ip for ip in dict.fromkeys(ips) if not ip.startswith("127.")]
+
+
+def firewall_hint(ip):
+    if IS_WIN:
+        return "If Windows asks, allow Python on private networks."
+    try:
+        active = subprocess.run(["systemctl", "is-active", "ufw"], capture_output=True, text=True, timeout=5).stdout.strip() == "active"
+    except Exception:
+        active = False
+    if active and ip:
+        net = ".".join(ip.split(".")[:3]) + ".0/24"
+        return f"sudo ufw allow from {net} to any port {PORT} proto tcp"
+    return ""
+
+
+def remote_status(local):
+    r = remote_cfg()
+    ips = lan_ips()
+    return {"enabled": bool(r.get("enabled")), "has_password": bool(r.get("hash")), "viewer_local": local,
+            "urls": [f"http://{ip}:{PORT}" for ip in ips] if r.get("enabled") else [],
+            "listening_all": BIND_HOST == "0.0.0.0", "firewall": firewall_hint(ips[0] if ips else "") if local else ""}
+
+
+def restart_server():
+    """Re-start so the new listening address (this PC only / my network) takes effect."""
+    time.sleep(0.8)
+    me = [sys.executable, str(HERE / "server.py")]
+    if IS_WIN:
+        subprocess.Popen(me, cwd=HERE, creationflags=0x00000008 | 0x08000000)   # detached, no window
+        os._exit(0)
+    os.execv(sys.executable, me)
+
+
+LOGIN_PAGE = (HERE / "ui" / "login.html")
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def send(self, code, body, ctype="application/json"):
+    def send(self, code, body, ctype="application/json", headers=None):
         b = body if isinstance(body, bytes) else json.dumps(body, ensure_ascii=False).encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype + "; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(b)
+
+    # -- who is asking?
+    def is_local(self):
+        """This PC itself (not a phone, and not something forwarded through a tunnel)."""
+        ip = self.client_address[0]
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
+        forwarded = any(self.headers.get(h) for h in ("X-Forwarded-For", "CF-Connecting-IP", "X-Real-IP", "Forwarded"))
+        return ip in ("127.0.0.1", "::1", "::ffff:127.0.0.1") and host in ("127.0.0.1", "localhost") and not forwarded
+
+    def cookie(self, name):
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == name:
+                return v
+        return ""
+
+    def authed(self):
+        if self.is_local():
+            return True
+        r = remote_cfg()
+        return bool(r.get("enabled") and r.get("hash") and session_ok(r, self.cookie("wl_session")))
+
+    def gate(self, path):
+        """True = carry on. Otherwise the reply (login page / 401 / 403) was already sent."""
+        if self.authed():
+            if path in LOCAL_ONLY and not self.is_local():
+                self.send(403, {"error": "This can only be changed on the PC itself"})
+                return False
+            return True
+        if path in ("/", "/index.html"):
+            self.send(302, b"", "text/plain", {"Location": "/login"})
+        else:
+            self.send(401, {"error": "Sign in first"})
+        return False
 
     def date_ok(self, d):
         if not d or not DATE_RE.match(d):
@@ -337,12 +478,19 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         path, _, qs = self.path.partition("?")
         q = dict(p.split("=", 1) for p in qs.split("&") if "=" in p)
+        if path == "/login":
+            if self.authed():
+                return self.send(302, b"", "text/plain", {"Location": "/"})
+            return self.send(200, LOGIN_PAGE.read_bytes(), "text/html")
+        if not self.gate(path):
+            return
         if path in ("/", "/index.html"):
             return self.send(200, (HERE / "ui" / "index.html").read_bytes(), "text/html")
         if path == "/api/dates":
             return self.send(200, list_dates())
         if path == "/api/status":
-            return self.send(200, status())
+            local = self.is_local()
+            return self.send(200, {**status(), "remote": remote_status(local), "view_url": view_url() if local else ""})
         if path == "/api/overview":
             d = self.date_ok(q.get("date"))
             return d and self.send(200, overview(d))
@@ -367,12 +515,77 @@ class H(BaseHTTPRequestHandler):
         self.send(404, {"error": "not found"})
 
     def do_POST(self):
-        if self.headers.get("Origin", "") not in ("",) + ORIGINS:      # CSRF guard
+        origin = self.headers.get("Origin", "")
+        if origin and origin not in ORIGINS and urlparse(origin).netloc != self.headers.get("Host", ""):   # CSRF guard
             return self.send(403, {"error": "forbidden origin"})
         try:
-            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0)) or 0) or b"{}")
+            body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0) or 0), 8_000_000)) or b"{}")
         except Exception:
             return self.send(400, {"error": "bad json"})
+
+        if self.path == "/api/login":
+            r, ip = remote_cfg(), self.client_address[0]
+            _fails[ip] = [t for t in _fails[ip] if t > time.time() - 300]
+            if len(_fails[ip]) >= 5:
+                return self.send(429, {"error": "Too many tries — wait 5 minutes"})
+            if not (r.get("enabled") and r.get("hash")):
+                return self.send(403, {"error": "Access from other devices is turned off on the PC"})
+            if not hmac.compare_digest(hash_pw(str(body.get("password", "")), r["salt"]), r["hash"]):
+                _fails[ip].append(time.time())
+                return self.send(401, {"error": "Wrong password"})
+            secure = "; Secure" if self.headers.get("X-Forwarded-Proto") == "https" else ""
+            return self.send(200, {"ok": True}, headers={
+                "Set-Cookie": f"wl_session={new_session(r)}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax{secure}"})
+        if self.path == "/api/logout":
+            return self.send(200, {"ok": True}, headers={"Set-Cookie": "wl_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"})
+        if not self.gate(self.path):
+            return
+
+        if self.path == "/api/view-link":                   # create / replace the phone-view link (this PC only)
+            sys.path.insert(0, str(HERE))
+            from push import call, hook
+            if not hook():
+                return self.send(400, {"error": "Connect the Google Sheet first"})
+            try:
+                ver = int(call({"action": "ping"}).get("version") or 1)
+            except Exception as e:
+                return self.send(200, {"ok": False, "error": f"Could not reach the sheet script: {e}"})
+            h = read_json(HERE / "sheet_webhook.json") or {}
+            h["script_version"] = ver
+            if ver < 4:
+                (HERE / "sheet_webhook.json").write_text(json.dumps(h, indent=2), encoding="utf-8")
+                return self.send(200, {"ok": False, "error": "update_script", "version": ver})
+            key = h.get("view_key") if h.get("view_key") and not body.get("rotate") else secrets.token_urlsafe(24)
+            c = cfg()
+            r = call({"action": "set_view_key", "key": key, "name": c["owner"].get("name", ""),
+                      "role": c["owner"].get("role", ""), "workday_hours": c["automation"].get("workday_hours", 8)})
+            if not r.get("ok"):
+                return self.send(200, {"ok": False, "error": r.get("error") or "The sheet script refused the link"})
+            h["view_key"] = key
+            (HERE / "sheet_webhook.json").write_text(json.dumps(h, indent=2), encoding="utf-8")
+            try:
+                os.chmod(HERE / "sheet_webhook.json", 0o600)
+            except OSError:
+                pass
+            return self.send(200, {"ok": True, "url": view_url()})
+
+        if self.path == "/api/remote":                      # turn "open on my phone" on/off (this PC only)
+            r = remote_cfg()
+            pw = str(body.get("password", ""))
+            if pw:
+                if len(pw) < 6:
+                    return self.send(400, {"error": "Use at least 6 characters"})
+                r["salt"] = secrets.token_hex(16)
+                r["hash"] = hash_pw(pw, r["salt"])
+            want = bool(body.get("enabled", r.get("enabled")))
+            if want and not r.get("hash"):
+                return self.send(400, {"error": "Set a password first"})
+            changed = want != bool(r.get("enabled"))
+            r["enabled"] = want
+            save_remote(r)
+            if changed or (want and BIND_HOST != "0.0.0.0"):
+                threading.Thread(target=restart_server, daemon=True).start()
+            return self.send(200, {"ok": True, "restarting": changed, "remote": remote_status(True)})
 
         if self.path == "/api/avatar":
             data = str(body.get("data", ""))
@@ -507,6 +720,16 @@ class H(BaseHTTPRequestHandler):
         self.send(404, {"error": "not found"})
 
 
+BIND_HOST = "0.0.0.0" if (read_json(REMOTE) or {}).get("enabled") else "127.0.0.1"
+
 if __name__ == "__main__":
-    print(f"My Work Log → http://127.0.0.1:{PORT}  (Ctrl+C to stop)")
-    ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
+    for attempt in range(40):                 # after a restart the old process may still hold the port briefly
+        try:
+            srv = ThreadingHTTPServer((BIND_HOST, PORT), H)
+            break
+        except OSError:
+            time.sleep(0.5)
+    else:
+        sys.exit(f"port {PORT} is busy")
+    print(f"My Work Log → http://127.0.0.1:{PORT}" + ("  (also on my network)" if BIND_HOST == "0.0.0.0" else ""))
+    srv.serve_forever()

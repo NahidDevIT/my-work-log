@@ -81,6 +81,29 @@ overwrites text you typed into the sheet yourself. The email is sent from your o
   * **Edit**, **Save my day now**, profile photo, light / dark theme
 * **Column C** of the sheet: `Total work hours: 7h 33m · Start: 8:58 AM · End: 4:32 PM · Extra: 0h 00m`.
 
+## Open on my phone
+
+Dashboard → **Settings & help** → **Open on my phone** → choose a password → **Turn on**.
+The card then shows the link (e.g. `http://192.168.1.20:8765`) and a QR code — open it on the phone and sign in.
+
+* Works on the same Wi-Fi / office network. If Ubuntu's firewall is on, the card shows the one command
+  that allows the port from your local network; on Windows click **Allow** when asked.
+* **From anywhere** (mobile data, home): install [Tailscale](https://tailscale.com/download) on the PC and
+  the phone, sign in to both with the same account — a second link appears in the card. Nothing is
+  opened to the public internet.
+* This PC never needs the password. Phones get a 30-day sign-in; changing the password signs every
+  device out; 5 wrong tries block that device for 5 minutes. The sheet key, sheet link, email recipients
+  and phone access itself can only be changed on the PC.
+* **Turn off** puts the dashboard back to *this PC only*.
+
+## Phone view — works when the PC is off
+
+Dashboard → **Settings & help** → **Phone view** → **Create my phone link**. You get a private link
+(and QR code) to a read-only, mobile page served by your Google Sheet's script: last-7-days totals and,
+for every day, *Total · Start · End · Extra* and all tasks — straight from the sheet, from any network,
+PC on or off. Only people with the link can open it; **New link** replaces it (the old one stops working).
+Needs the sheet script **version 4** (the card shows the 1-minute update if yours is older).
+
 ## Settings — `config.yaml`
 
 Created by the installer from [`config.example.yaml`](config.example.yaml). The useful bits:
