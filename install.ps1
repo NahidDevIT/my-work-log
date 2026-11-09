@@ -89,6 +89,7 @@ if ($Uninstall) {
         if (Run-Elevated '-RemoveLogoffScript') { Ok 'sign-out script removed' } else { Warn 'could not remove the sign-out script (needs administrator)' }
     }
     Get-CimInstance Win32_Process -Filter "Name like 'python%'" | Where-Object { $_.CommandLine -like "*$Dir*server.py*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+    $pyx = (Get-Content -LiteralPath (Join-Path $Dir '.python') -ErrorAction SilentlyContinue); if ($pyx) { & $pyx (Join-Path $Dir 'desktop_app.py') --remove }
     Ok "done - your data (raw\, output\, config.yaml ...) is still in $Dir"
     exit 0
 }
@@ -177,6 +178,7 @@ else { Warn 'skipped - your day is still saved by the sign-in catch-up and the l
 
 # 6. Dashboard ────────────────────────────────────────────────────────────
 Step '6/6  Dashboard'
+& $py (Join-Path $Dir 'desktop_app.py')
 $running = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue
 if (-not $running) { Start-Process -FilePath $pyw -ArgumentList "`"$Dir\server.py`"" -WorkingDirectory $Dir -WindowStyle Hidden; Start-Sleep -Seconds 2 }
 Start-Process 'http://127.0.0.1:8765'

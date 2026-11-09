@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Work Log">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>My Work Log</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-180.png">
+<style>
+:root{color-scheme:dark;--bg:#0f1115;--panel:#161a22;--line:#262c38;--text:#e6e8ec;--mut:#8b93a1;--ok:#10b981}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#view{position:fixed;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+.screen{position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center}
+.screen[hidden],#view[hidden],#busy[hidden]{display:none}
+.card{max-width:380px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px 22px}
+.card img{width:72px;height:72px;border-radius:18px}
+h1{font-size:20px;margin:12px 0 6px}
+p{color:var(--mut);margin:0 0 14px}
+ol{text-align:left;color:var(--mut);padding-left:20px;margin:0 0 16px}
+input{width:100%;font:inherit;color:inherit;background:#1c212b;border:1px solid #323a49;border-radius:11px;padding:11px 12px}
+button{width:100%;margin-top:10px;font:inherit;font-weight:650;border:0;border-radius:11px;padding:12px;background:var(--ok);color:#05140e}
+#busy{position:fixed;inset:0;display:grid;place-items:center;background:rgba(15,17,21,.92);z-index:5}
+.spin{width:34px;height:34px;border:3px solid #323a49;border-top-color:var(--ok);border-radius:50%;animation:s 1s linear infinite;margin:0 auto 12px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<iframe id="view" title="My Work Log" hidden></iframe>
+
+<div class="screen" id="setup" hidden>
+  <div class="card">
+    <img src="icons/icon-192.png" alt="">
+    <h1>My Work Log</h1>
+    <p>Connect this app to your PC once.</p>
+    <ol>
+      <li>On the PC open My Work Log → <b>Settings &amp; help</b> → <b>Open on my phone</b>.</li>
+      <li>Scan the QR code with this phone.</li>
+    </ol>
+    <p style="margin-bottom:8px">…or paste your phone link:</p>
+    <input id="paste" type="url" placeholder="https://script.google.com/macros/s/…?k=…" aria-label="Phone link">
+    <button id="save">Connect</button>
+  </div>
+</div>
+
+<div class="screen" id="offline" hidden>
+  <div class="card"><img src="icons/icon-192.png" alt=""><h1>No internet</h1><p>Connect to Wi-Fi or mobile data to see your work.</p>
+    <button onclick="location.reload()">Try again</button></div>
+</div>
+
+<div id="busy" hidden><div><div class="spin"></div><div>Opening my live dashboard…</div></div></div>
+
+<script>
+"use strict";
+// My Work Log — phone app.
+//  • the private phone link comes from the QR code (#link=…) and is kept only on this phone
+//  • it shows the sheet page (works anywhere, PC on or off)
+//  • when that page reports "PC on + same Wi-Fi", the app opens the live dashboard by itself;
+//    the dashboard comes back here (#back) when the PC can no longer be reached
+const KEY = "mwl_link", NOAUTO = "mwl_noauto_until", LAST = "mwl_last_auto";
+const store = { get: k => { try { return localStorage.getItem(k) } catch { return null } },
+                set: (k, v) => { try { localStorage.setItem(k, v) } catch {} },
+                del: k => { try { localStorage.removeItem(k) } catch {} } };
+const $ = s => document.querySelector(s);
+const valid = u => /^https:\/\/script\.google(usercontent)?\.com\/.+[?&]k=[\w-]{20,}/.test(u || "");
+
+const h = new URLSearchParams(location.hash.slice(1));
+if (h.has("reset")) store.del(KEY);
+if (valid(h.get("link"))) store.set(KEY, h.get("link"));
+if (h.has("back")) store.set(NOAUTO, String(Date.now() + 3 * 60 * 1000));   // just came back: don't bounce
+if (location.hash) history.replaceState(null, "", location.pathname);        // the link never stays in the address bar
+
+function start() {
+  const link = store.get(KEY);
+  if (!valid(link)) { $("#setup").hidden = false; return; }
+  if (!navigator.onLine) { $("#offline").hidden = false; return; }
+  const v = $("#view");
+  v.src = link + (link.includes("?") ? "&" : "?") + "app=1";
+  v.hidden = false;
+}
+$("#save").onclick = () => {
+  const u = $("#paste").value.trim();
+  if (!valid(u)) { $("#paste").style.borderColor = "#f87171"; return; }
+  store.set(KEY, u); $("#setup").hidden = true; start();
+};
+
+window.addEventListener("message", e => {
+  let host = "";
+  try { host = new URL(e.origin).hostname } catch {}
+  if (!/(^|\.)googleusercontent\.com$|^script\.google\.com$/.test(host)) return;    // only my sheet page
+  const m = e.data;
+  if (!m || m.mwl !== 1 || !m.live || !m.same) return;
+  if (!/^https?:\/\/[\w.\-:\[\]]+\/?$/.test(m.live)) return;
+  const now = Date.now();
+  if (now < +(store.get(NOAUTO) || 0) || now - +(store.get(LAST) || 0) < 90 * 1000) return;
+  store.set(LAST, String(now));
+  $("#busy").hidden = false;
+  location.href = m.live.replace(/\/?$/, "/") + "#app=" + encodeURIComponent(location.origin + location.pathname);
+});
+window.addEventListener("online", () => { if (!$("#offline").hidden) location.reload(); });
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+start();
+</script>
+</body>
+</html>

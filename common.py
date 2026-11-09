@@ -44,6 +44,8 @@ DEFAULTS = {
                        "__pycache__", ".cache", "coverage", ".gradle", "bin", "obj", "vendor"],
     "browser": {"profiles": "auto", "block_domains": [], "drop_search_engines": True},
     "ignore_dirs": [],
+    # the phone app (an installable page on GitHub Pages; your private link stays on the phone)
+    "phone_app_url": "https://nahiddevit.github.io/my-work-log/",
 }
 
 

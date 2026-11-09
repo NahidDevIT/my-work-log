@@ -4,7 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My Work Log</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-180.png">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Work Log">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32">
 <style>
 /* ───────── tokens: dark is the default ───────── */
 :root{
@@ -502,6 +510,29 @@ function tick(){
   $("#cdBar").style.width=`${Math.min(100,worked/total*100).toFixed(2)}%`;
 }
 tick(); setTimeout(()=>{tick(); setInterval(tick,1000)}, 1000-new Date().getMilliseconds());
+/* On a phone: if this PC stops answering (switched to mobile data, PC off), go to my phone link —
+   it shows my saved work from the Google Sheet. */
+const FALLBACK="wl_phone_link";
+let pingFails=0, pinging=false;
+async function pcReachable(){
+  const ctrl=new AbortController(), t=setTimeout(()=>ctrl.abort(),4000);
+  try{ const r=await fetch("/api/ping?"+Date.now(),{cache:"no-store",signal:ctrl.signal}); return r.ok }
+  catch{ return false } finally{ clearTimeout(t) }
+}
+async function watchPC(){
+  if(pinging || S.status?.remote?.viewer_local!==false) return;       // only on other devices, never on this PC
+  pinging=true;
+  try{
+    if(await pcReachable()){ pingFails=0; return }
+    if(++pingFails>=2){ const app=ls.get("wl_fallback_app"), u=app?app+"#back":ls.get(FALLBACK);
+      if(u){ toast("This PC can't be reached — opening my saved work","phone"); setTimeout(()=>location.replace(u),600) } }
+  } finally { pinging=false }
+}
+setInterval(watchPC, 5000);
+window.addEventListener("online", ()=>{ pingFails=1; watchPC() });     // network changed → check now
+window.addEventListener("offline", ()=>{ pingFails=1 });
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") watchPC() });
+
 setInterval(()=>{ if(document.visibilityState==="visible" && !S.edit && !$("#addDlg").open) refreshAll() }, 5*60e3);   // keep today's activity fresh
 
 /* Save my day now (top-right) */
@@ -754,27 +785,59 @@ function renderInsights(){
   </div>`;
 }
 
-/* Open on my phone — this dashboard on other devices (password protected) */
+/* Open on my phone — ONE link + ONE QR code:
+   PC on  → the page opens my live dashboard (same Wi-Fi; other devices sign in with a password)
+   PC off → my saved work from the Google Sheet (served by the sheet's script) */
 function phoneCard(st){
   const r=st.remote||{}, box=c=>`<div class="card" id="phoneCard" style="grid-column:1/-1"><h4>${ic("phone","sm")}Open on my phone</h4>${c}</div>`;
   if(!r.viewer_local) return box(`<div class="toolbar" style="margin:0"><span class="ok">${ic("check","sm")} Signed in from this device</span><span class="sp"></span>
       <button class="btn" id="signOut">${ic("logout","sm")}Sign out</button></div>
-    <p style="color:var(--muted);font-size:12.5px;margin:6px 0 0">The sheet key, sheet link, email recipients and phone access can only be changed on the PC itself.</p>`);
-  if(!r.enabled) return box(`<p style="color:var(--text-2);margin:0 0 12px">Use this dashboard on my phone or another computer on the same network. Other devices must sign in with a password.</p>
-    <div class="toolbar" style="margin:0"><input class="field" id="rPw" type="password" autocomplete="new-password" placeholder="${r.has_password?"New password (or leave empty to keep the old one)":"Choose a password (6+ characters)"}" style="flex:1;min-width:220px" aria-label="Password">
-      <button class="btn primary" id="rOn">${ic("phone","sm")}Turn on</button></div>`);
-  const urls=r.urls||[];
-  return box(`<div class="phgrid">
-      <div>
-        <div class="where" style="margin:0 0 6px">Open this on my phone (same Wi-Fi / network):</div>
-        ${urls.map(u=>`<div class="toolbar" style="margin:0 0 8px"><code style="flex:1;min-width:200px;padding:9px 11px;font-size:15px">${esc(u)}</code><button class="btn rCopy" data-u="${esc(u)}">${ic("copy","sm")}Copy</button></div>`).join("")||`<div class="warn" style="margin-bottom:8px">${ic("alert","sm")} No network connection found.</div>`}
-        ${r.firewall?(st.platform==="windows"?`<div class="where" style="margin:10px 0 0">${ic("info","sm")} ${esc(r.firewall)}</div>`:`<div class="where" style="margin:10px 0 6px">The firewall is on — allow it once (in a terminal):</div><div class="toolbar" style="margin:0"><code style="flex:1;min-width:200px;padding:8px 10px;word-break:break-all" id="fwCmd">${esc(r.firewall)}</code><button class="btn" id="fwCopy">${ic("copy","sm")}Copy</button></div>`):""}
-        <div class="toolbar" style="margin:14px 0 0"><input class="field" id="rPw" type="password" autocomplete="new-password" placeholder="New password" style="flex:1;min-width:180px" aria-label="New password">
-          <button class="btn" id="rPwSave">Change password</button><button class="btn ghost" id="rOff">Turn off</button></div>
-        <p style="color:var(--muted);font-size:12.5px;margin:10px 0 0">${ic("info","sm")} Away from this network? Install <a href="https://tailscale.com/download" target="_blank" rel="noopener">Tailscale</a> on this PC and the phone — a second link then appears here that works from anywhere.</p>
-      </div>
-      <div id="rQr" class="qrbox" aria-label="QR code of the link"></div>
-    </div>`);
+    <p style="color:var(--muted);font-size:12.5px;margin:6px 0 0">The sheet key, sheet link, email recipients and phone settings can only be changed on the PC itself.</p>`);
+  const appLink = st.view_url && (st.script_version||0)>=6 && st.phone_app_url ? st.phone_app_url+"#link="+encodeURIComponent(st.view_url) : "";
+  const link = appLink || st.view_url || (r.urls||[])[0] || "";
+  // ── 1. the one link
+  let top;
+  if(appLink){
+    top=`<div class="where" style="margin:0 0 8px"><b style="color:var(--text)">Phone app</b> — scan the QR code with my phone, then tap <b>Install</b> / <b>Add to Home screen</b>.</div>
+      <div class="toolbar" style="margin:0"><button class="btn primary" id="pCopy">${ic("copy","sm")}Copy app link</button>
+        <a class="btn" href="${esc(appLink)}" target="_blank" rel="noopener">${ic("ext","sm")}Open</a>
+        <button class="btn ghost" id="viewNew" data-tip="The old link stops working (the phone app must be set up again)">New link</button></div>
+      <p style="color:var(--text-2);font-size:13px;margin:10px 0 0"><b class="ok">PC on + same Wi-Fi</b> → the app opens my live dashboard by itself · <b>PC off / mobile data</b> → my saved days, tasks and hours.</p>
+      <p style="color:var(--muted);font-size:12.5px;margin:6px 0 0">${ic("info","sm")} My private link stays on the phone — it is never sent to the app's website.</p>`;
+  } else if(st.view_url){
+    top=`<div class="where" style="margin:0 0 6px">My phone link — keep it private:</div>
+      <div class="toolbar" style="margin:0 0 8px"><code style="flex:1;min-width:200px;padding:9px 11px;word-break:break-all;font-size:12.5px">${esc(st.view_url)}</code></div>
+      <div class="toolbar" style="margin:0"><button class="btn primary" id="pCopy">${ic("copy","sm")}Copy link</button>
+        <a class="btn" href="${esc(st.view_url)}" target="_blank" rel="noopener">${ic("ext","sm")}Open</a>
+        <button class="btn ghost" id="viewNew" data-tip="The old link stops working">New link</button></div>
+      ${(st.script_version||0)>=6
+        ? `<p style="color:var(--text-2);font-size:13px;margin:10px 0 0"><b class="ok">PC on</b> → opens my live dashboard · <b>PC off</b> → my saved days, tasks and hours from the sheet.</p>`
+        : `<div class="warn" style="margin:12px 0 0">${ic("alert","sm")} The link works. Update the script once more to get the <b>phone app</b> (it opens my live dashboard by itself on the same Wi-Fi):</div>
+        <ol class="steps" style="font-size:13px;margin:6px 0 10px"><li><button class="btn" id="vCopyScript2">${ic("copy","sm")}Copy script</button></li>
+        <li>In the sheet: <b>Extensions → Apps Script</b> → select all, paste over the old code → <b>Save</b>.</li>
+        <li><b>Deploy → Manage deployments</b> → pencil icon → Version: <b>New version</b> → <b>Deploy</b> (not "New deployment").</li>
+        <li><button class="btn" id="vRecheck">${ic("refresh","sm")}Check again</button></li></ol>`}`;
+  } else if(!st.sheet_sync){
+    top=`<p style="color:var(--text-2);margin:0">Connect the Google Sheet first (below) to get <b>one link</b> that also works when this PC is off.${r.enabled?" Until then, use the live link:":""}</p>
+      ${r.enabled&&link?`<div class="toolbar" style="margin:8px 0 0"><code style="flex:1;padding:9px 11px">${esc(link)}</code><button class="btn" id="pCopy">${ic("copy","sm")}Copy</button></div>`:""}`;
+  } else {
+    top=`<p style="color:var(--text-2);margin:0 0 12px">One link and one QR code for my phone: it opens my <b>live dashboard</b> when this PC is on, and my <b>saved work from the sheet</b> when the PC is off — from any network.</p>
+      <div id="viewMsg"></div><button class="btn primary" id="viewMake">${ic("phone","sm")}Create my phone link</button>`;
+  }
+  // ── 2. live dashboard while the PC is on
+  const live = !r.enabled
+    ? `<p style="color:var(--text-2);margin:0 0 10px">Off — the link shows only the saved work. Turn on to open the <b>live</b> dashboard from the phone (same Wi-Fi). Other devices must sign in with this password.</p>
+       <div class="toolbar" style="margin:0"><input class="field" id="rPw" type="password" autocomplete="new-password" placeholder="${r.has_password?"New password (or leave empty to keep the old one)":"Choose a password (6+ characters)"}" style="flex:1;min-width:220px" aria-label="Password">
+         <button class="btn" id="rOn">Turn on</button></div>`
+    : `<div class="toolbar" style="margin:0 0 8px"><span class="ok">${ic("check","sm")} On</span><code style="padding:6px 10px">${esc((r.urls||[])[0]||"no network")}</code><span class="sp"></span>
+         <button class="btn ghost" id="rOff">Turn off</button></div>
+       ${r.firewall?(st.platform==="windows"?`<div class="where" style="margin:0 0 8px">${ic("info","sm")} ${esc(r.firewall)}</div>`:`<div class="where" style="margin:0 0 6px">If the phone can't open it, allow it through the firewall once (in a terminal):</div><div class="toolbar" style="margin:0 0 8px"><code style="flex:1;min-width:200px;padding:8px 10px;word-break:break-all" id="fwCmd">${esc(r.firewall)}</code><button class="btn" id="fwCopy">${ic("copy","sm")}Copy</button></div>`):""}
+       <div class="toolbar" style="margin:0"><input class="field" id="rPw" type="password" autocomplete="new-password" placeholder="New password" style="flex:1;min-width:180px" aria-label="New password">
+         <button class="btn" id="rPwSave">Change password</button></div>
+       <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">${ic("info","sm")} Live view away from this Wi-Fi: install <a href="https://tailscale.com/download" target="_blank" rel="noopener">Tailscale</a> on this PC and the phone.</p>`;
+  return box(`<div class="phgrid"><div>${top}
+      <div class="wksec" style="margin:18px 0 8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Live dashboard when the PC is on</div>${live}
+    </div>${link?`<div id="pQr" class="qrbox" aria-label="QR code of my phone link"></div>`:""}</div>`);
 }
 function bindPhoneCard(){
   const st=S.status, r=st.remote||{};
@@ -784,14 +847,29 @@ function bindPhoneCard(){
       if(x.restarting) await waitBack(); else S.status.remote=x.remote; toast(msg,"phone"); renderTabs(); });
   const on=$("#rOn"); if(on) on.onclick=e=>{ const pw=$("#rPw").value; if(!pw && !r.has_password) return toast("Choose a password first","alert");
     if(pw && pw.length<6) return toast("Use at least 6 characters","alert");
-    set(e.currentTarget," Turning on…",{enabled:true,password:pw},"Phone access is on"); };
-  const off=$("#rOff"); if(off) off.onclick=e=>set(e.currentTarget," Turning off…",{enabled:false},"Phone access is off — this PC only");
+    set(e.currentTarget," Turning on…",{enabled:true,password:pw},"Live dashboard on the phone is on"); };
+  const off=$("#rOff"); if(off) off.onclick=e=>set(e.currentTarget," Turning off…",{enabled:false},"Live dashboard is now this PC only — the link still shows the saved work");
   const ps=$("#rPwSave"); if(ps) ps.onclick=e=>{ const pw=$("#rPw").value; if(pw.length<6) return toast("Use at least 6 characters","alert");
     set(e.currentTarget," Saving…",{password:pw},"Password changed — other devices must sign in again"); };
-  $$(".rCopy").forEach(b=>b.onclick=async()=>{ try{await navigator.clipboard.writeText(b.dataset.u);toast("Link copied","copy")}catch{prompt("Copy this link:",b.dataset.u)} });
   const fw=$("#fwCopy"); if(fw) fw.onclick=async()=>{ try{await navigator.clipboard.writeText($("#fwCmd").textContent);toast("Copied — paste it into a terminal","copy")}catch{} };
-  drawQR($("#rQr"), (r.urls||[])[0]);
-  bindViewCard();
+  const link = st.view_url || (r.urls||[])[0] || "";
+  const cp=$("#pCopy"); if(cp) cp.onclick=async()=>{ try{await navigator.clipboard.writeText(link);toast("Link copied — keep it private","copy")}catch{prompt("Copy this link:",link)} };
+  const make=(btn,rotate)=>busy(btn,rotate?" Making a new link…":" Creating…",async()=>{
+    const x=await api("/api/view-link",{rotate});
+    if(x.ok){ st.view_url=x.url; st.script_version=Math.max(st.script_version||0,5); toast(rotate?"New link ready — the old one no longer works":"Phone link ready — scan the QR code","phone"); return renderTabs(); }
+    if(x.error==="update_script"){ const m=$("#viewMsg"); if(m) m.innerHTML=`<div class="warn" style="margin:0 0 6px">${ic("alert","sm")} Update the script in my sheet once (it adds the phone link):</div>
+      <ol class="steps" style="font-size:13px;margin:0 0 12px"><li><button class="btn" id="vCopyScript">${ic("copy","sm")}Copy script</button></li>
+      <li>In the sheet: <b>Extensions → Apps Script</b> → select all, paste over the old code → <b>Save</b>.</li>
+      <li><b>Deploy → Manage deployments</b> → pencil icon → Version: <b>New version</b> → <b>Deploy</b> (not "New deployment").</li>
+      <li>Come back and press <b>Create my phone link</b> again.</li></ol>`;
+      const c=$("#vCopyScript"); if(c) c.onclick=()=>$("#copyScript").click(); return; }
+    throw new Error(x.error||"Could not create the link"); });
+  const mk=$("#viewMake"); if(mk) mk.onclick=e=>make(e.currentTarget,false);
+  const nw=$("#viewNew"); if(nw) nw.onclick=e=>{ if(confirm("Make a new link? The old link will stop working.")) make(e.currentTarget,true); };
+  const c2=$("#vCopyScript2"); if(c2) c2.onclick=()=>$("#copyScript").click();
+  const rc=$("#vRecheck"); if(rc) rc.onclick=e=>busy(e.currentTarget," Checking…",async()=>{ const v=await api("/api/script-version",{});
+    if(v.version) st.script_version=v.version; toast(v.version>=5?"Up to date — the link now also opens the live dashboard":"Still version "+(v.version||"?")+" — deploy it as a New version", v.version>=5?"check":"alert"); renderTabs(); });
+  drawQR($("#pQr"), link);
 }
 function drawQR(el, url){
   if(!el) return;
@@ -802,40 +880,6 @@ function drawQR(el, url){
   if(old){ old.addEventListener("load",draw); return; }
   const sc=document.createElement("script"); sc.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.dataset.qr="1";
   sc.onload=draw; sc.onerror=()=>{ el.style.display="none"; }; document.head.appendChild(sc);
-}
-
-/* Phone view — read-only page served by the Google Sheet's script, works when this PC is off */
-function viewCard(st){
-  if(!st.remote?.viewer_local) return "";
-  const box=c=>`<div class="card" id="viewCard" style="grid-column:1/-1"><h4>${ic("globe","sm")}Phone view — works when the PC is off</h4>${c}</div>`;
-  if(!st.sheet_sync) return box(`<p style="color:var(--text-2);margin:0">Connect the Google Sheet first (below) — the phone view is served by the sheet's script.</p>`);
-  if(!st.view_url) return box(`<p style="color:var(--text-2);margin:0 0 12px">A read-only page of my days, tasks and hours, straight from my Google Sheet — open it on my phone from anywhere, even when this PC is off. Only people with the secret link can open it.</p>
-    <div id="viewMsg"></div><button class="btn primary" id="viewMake">${ic("globe","sm")}Create my phone link</button>`);
-  return box(`<div class="phgrid"><div>
-      <div class="where" style="margin:0 0 6px">Open on my phone (any network, PC on or off) — keep this link private:</div>
-      <div class="toolbar" style="margin:0 0 8px"><code style="flex:1;min-width:200px;padding:9px 11px;word-break:break-all;font-size:12.5px" id="viewUrl">${esc(st.view_url)}</code></div>
-      <div class="toolbar" style="margin:0"><button class="btn" id="viewCopy">${ic("copy","sm")}Copy link</button>
-        <a class="btn" href="${esc(st.view_url)}" target="_blank" rel="noopener">${ic("ext","sm")}Open</a>
-        <button class="btn ghost" id="viewNew" data-tip="The old link stops working">New link</button></div>
-      <p style="color:var(--muted);font-size:12.5px;margin:10px 0 0">${ic("info","sm")} Read-only: it shows what is in the sheet (updated when I save my day / shut down). Nobody can change anything with it.</p>
-    </div><div id="vQr" class="qrbox" aria-label="QR code of the phone view link"></div></div>`);
-}
-function bindViewCard(){
-  const st=S.status;
-  const make=async(btn,rotate)=>busy(btn,rotate?" Making a new link…":" Creating…",async()=>{
-    const r=await api("/api/view-link",{rotate});
-    if(r.ok){ st.view_url=r.url; st.script_version=Math.max(st.script_version||0,4); toast(rotate?"New link ready — the old one no longer works":"Phone link ready","globe"); return renderTabs(); }
-    if(r.error==="update_script"){ const m=$("#viewMsg"); if(m) m.innerHTML=`<div class="warn" style="margin:0 0 6px">${ic("alert","sm")} Update the script in my sheet once (it adds the phone view):</div>
-      <ol class="steps" style="font-size:13px;margin:0 0 12px"><li><button class="btn" id="vCopyScript">${ic("copy","sm")}Copy script</button></li>
-      <li>In the sheet: <b>Extensions → Apps Script</b> → select all, paste over the old code → <b>Save</b>.</li>
-      <li><b>Deploy → Manage deployments</b> → pencil icon → Version: <b>New version</b> → <b>Deploy</b>.</li>
-      <li>Come back and press <b>Create my phone link</b> again.</li></ol>`;
-      const c=$("#vCopyScript"); if(c) c.onclick=()=>$("#copyScript").click(); return; }
-    throw new Error(r.error||"Could not create the link"); });
-  const mk=$("#viewMake"); if(mk) mk.onclick=e=>make(e.currentTarget,false);
-  const nw=$("#viewNew"); if(nw) nw.onclick=e=>{ if(confirm("Make a new link? The old link will stop working.")) make(e.currentTarget,true); };
-  const cp=$("#viewCopy"); if(cp) cp.onclick=async()=>{ try{await navigator.clipboard.writeText(st.view_url);toast("Link copied — keep it private","copy")}catch{prompt("Copy this link:",st.view_url)} };
-  drawQR($("#vQr"), st.view_url);
 }
 
 /* Settings & help */
@@ -856,7 +900,6 @@ function renderSettings(){
       <dt>Sheet sync</dt><dd>${st.sheet_sync?yes("connected"):no("not set up yet")}</dd>
       <dt>Last run</dt><dd>${st.last_run?esc(Object.entries(st.last_run.steps).map(([k,v])=>`${k}: ${v}`).join(" · ")):"none yet"}</dd></dl></div>
     ${phoneCard(st)}
-    ${viewCard(st)}
     <div class="card" style="grid-column:1/-1"><h4>${ic("zap","sm")}${st.shutdown_hook?.active?"Save at shutdown is installed":"Save my day at shutdown (one time)"}</h4>
       ${st.shutdown_hook?.active?`<p style="color:var(--text-2);margin:0">Turning the PC off saves my day to the sheet${st.mail?.enabled?" and emails it":""}. To remove everything, run the installer again with <code>${st.platform==="windows"?"-Uninstall":"--uninstall"}</code>.</p>`:
       `<p style="color:var(--text-2);margin:0 0 10px">${st.platform==="windows"?"Run the installer once (it asks for administrator permission):":"Open a terminal and run the installer once (it asks for my password):"}</p>
@@ -893,8 +936,8 @@ function renderSettings(){
     api("/api/script-version",{}).then(r=>{ if(!$("#scriptVer")) return;
       if(r.version && r.version!==st.script_version){ st.script_version=r.version; }
       el.innerHTML = !r.ok ? `<span class="warn">${ic("alert","sm")} Could not reach the script in my sheet.</span> <button class="btn" id="recheck">${ic("refresh","sm")}Check again</button>`
-        : r.version>=4 ? `<span class="ok">${ic("check","sm")} Up to date — email, the “Total Working Hours” column and the phone view are ready.</span>`
-        : `<span class="warn" style="display:block;margin-bottom:6px">${ic("alert","sm")} ${r.version>=3?"Email and column C work. Update the script once more to add the phone view (works when the PC is off):":r.version>=2?"Email works. To fill column C “Total Working Hours” and add the phone view, update the script in my sheet once:":"Email is not ready: my sheet still runs the old script. Update it once:"}</span>
+        : r.version>=5 ? `<span class="ok">${ic("check","sm")} Up to date — email, the “Total Working Hours” column and the phone link are ready.</span>`
+        : `<span class="warn" style="display:block;margin-bottom:6px">${ic("alert","sm")} ${r.version>=3?"Email and column C work. Update the script once more to add the phone link (one link: live when the PC is on, saved work when it is off):":r.version>=2?"Email works. To fill column C “Total Working Hours” and add the phone view, update the script in my sheet once:":"Email is not ready: my sheet still runs the old script. Update it once:"}</span>
            <ol class="steps" style="font-size:13px;margin:0 0 10px">
              <li><button class="btn" id="copyScript2">${ic("copy","sm")}Copy script</button></li>
              <li>In the sheet: <b>Extensions → Apps Script</b> → select all, paste over the old code → <b>Save</b>.</li>
@@ -919,6 +962,7 @@ async function refreshAll(){
   const t=today(), end = S.date>=addDays(t,-3) ? t : addDays(S.date,3);
   const [st, day, over] = await Promise.all([api("/api/status"), api("/api/day?date="+S.date), api("/api/overview?date="+end)]);
   S.status=st; S.day=day; S.over=over; buildGroups(st.groups);
+  if(st.remote?.viewer_local===false && st.phone_link) ls.set(FALLBACK, st.phone_link);
   renderHeader(); renderAuto(); renderWeek(); renderHero(); renderTabs();
 }
 $("#prev").onclick=()=>openDay(addDays(S.date,-1));
@@ -926,6 +970,8 @@ $("#next").onclick=()=>openDay(addDays(S.date,1));
 $("#todayBtn").onclick=()=>openDay(today());
 $("#pick").onchange=e=>e.target.value&&openDay(e.target.value);
 $("#calBtn").onclick=()=>{ const p=$("#pick"); try{ p.showPicker() }catch{ p.style.pointerEvents="auto"; p.focus(); p.click() } };
+if(location.hash.startsWith("#app=")){ try{ const a=decodeURIComponent(location.hash.slice(5)); if(/^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(a)) ls.set("wl_fallback_app",a) }catch{} }
+if("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("/sw.js").catch(()=>{});   // installable desktop app
 openDay(/^\d{4}-\d{2}-\d{2}$/.test(location.hash.slice(1))?location.hash.slice(1):today());
 </script>
 </body>

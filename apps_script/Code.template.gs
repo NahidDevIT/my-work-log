@@ -16,7 +16,7 @@
  */
 const TOKEN = '__TOKEN__';
 const SHEET_NAME = 'Sheet1';
-const VERSION = 4;          // 2 = daily email, 3 = column C "Total Working Hours", 4 = phone view
+const VERSION = 6;          // 2 = daily email, 3 = column C, 4 = phone view, 5 = one phone link, 6 = phone app
 
 function sheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -29,6 +29,7 @@ function doPost(e) {
   if (req.token !== TOKEN) return reply({ ok: false, error: 'unauthorized' });
   if (req.action === 'email') return sendReport(req);
   if (req.action === 'set_view_key') return setViewKey(req);
+  if (req.action === 'heartbeat') return heartbeat(req);
 
   const sh = sheet_();
   const lock = LockService.getScriptLock();
@@ -105,6 +106,19 @@ function setViewKey(req) {
   return reply({ ok: true, status: 'view_key_set' });
 }
 
+/** The PC reports "I'm on" (every 2 min) or "I'm off" (at shutdown) + its live-dashboard links. */
+function heartbeat(req) {
+  const urls = [].concat(req.urls || []).map(String).filter(function (u) { return /^https?:\/\/[\w.\-:\[\]]+\/?$/.test(u); }).slice(0, 3);
+  const ip = /^[\d.:a-fA-F]{3,45}$/.test(String(req.ip || '')) ? String(req.ip) : '';
+  PropertiesService.getScriptProperties().setProperties({
+    PC_SEEN: req.online ? String(Date.now()) : '0',
+    PC_LAST: String(Date.now()),
+    PC_URLS: JSON.stringify(req.online ? urls : []),
+    PC_IP: req.online ? ip : ''
+  });
+  return reply({ ok: true, status: 'heartbeat' });
+}
+
 function reply(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -126,10 +140,21 @@ function doGet(e) {
     hours: Number(p.getProperty('VIEW_HOURS') || 8),
     today: Utilities.formatDate(new Date(), tz, 'EEEE, MMMM d, yyyy'),
     todayIso: Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'),
-    generated: Utilities.formatDate(new Date(), tz, 'EEE d MMM, h:mm a')
+    generated: Utilities.formatDate(new Date(), tz, 'EEE d MMM, h:mm a'),
+    pc: pcState_(p, tz),
+    inApp: String((e && e.parameter && e.parameter.app) || '') === '1'
   });
   return HtmlService.createHtmlOutput(html).setTitle('My Work Log')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)          // the phone app shows this page inside itself
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function pcState_(p, tz) {
+  const seen = Number(p.getProperty('PC_SEEN') || 0), last = Number(p.getProperty('PC_LAST') || 0);
+  let urls = [];
+  try { urls = JSON.parse(p.getProperty('PC_URLS') || '[]'); } catch (err) {}
+  return { online: seen > 0 && Date.now() - seen < 5 * 60 * 1000, urls: urls, ip: p.getProperty('PC_IP') || '',
+           lastSeen: last ? Utilities.formatDate(new Date(last), tz, 'EEE d MMM, h:mm a') : '' };
 }
 
 /** Pure HTML builder (no Google services) — rows: [[date, work, hours], …] oldest first. */
@@ -198,6 +223,34 @@ function renderView(rows, o) {
   });
   if (!days.length) list = '<p class="mut" style="padding:24px 0;text-align:center">Nothing in the sheet yet.</p>';
 
+  // One link for the phone: PC on → open the live dashboard (automatically on the same network),
+  // PC off → the saved work below.
+  const pc = o.pc || {};
+  const live = pc.online && pc.urls && pc.urls.length ? pc.urls[0] : '';
+  const js = function (v) { return JSON.stringify(String(v)).replace(/</g, '\\u003c'); };
+  let banner;
+  // Tell the phone app (if this page is shown inside it) whether the PC is on and on the same Wi-Fi.
+  const status = '<script>(function(){var ip=' + js(pc.ip || '') + ',u=' + js(live) + ',app=' + (o.inApp ? 'true' : 'false') + ',tried=false;' +
+    'function post(same){try{window.top.postMessage({mwl:1,online:' + (pc.online ? 'true' : 'false') + ',live:u,same:!!same},"*")}catch(e){}}' +
+    'function show(same){var m=document.getElementById("pcmsg"),g=document.getElementById("go");if(!m||!g)return;' +
+    'm.textContent=same?(app?"You are on the same Wi-Fi — opening the live dashboard…":"You are on the same Wi-Fi — tap to open the live dashboard"):"Open the live dashboard — works on the same Wi-Fi";' +
+    'g.className=same?"go pulse":"go"}' +
+    'function check(){if(!ip||!u||!window.fetch){post(false);return}' +
+    'fetch("https://api.ipify.org?format=json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){' +
+    'var same=!!(j&&j.ip===ip);show(same);post(same);' +
+    // outside the app most browsers only allow leaving this Google page after a tap; try once anyway
+    'if(same&&!app&&!tried){tried=true;try{window.top.location.href=u}catch(e){}}}).catch(function(){post(false)})}' +
+    'check();setInterval(check,20000);window.addEventListener("online",check)})();</script>';
+  if (live) {
+    banner = '<div class="pc on"><div><b>● My PC is on</b><span id="pcmsg">Open the live dashboard — works on the same Wi-Fi</span></div>' +
+      '<a class="go" id="go" href="' + esc(live) + '" target="_top">Open live dashboard</a></div>' + status;
+  } else if (pc.online) {
+    banner = '<div class="pc on"><div><b>● My PC is on</b><span>Turn on “Open on my phone” in the dashboard to open it live from here</span></div></div>';
+  } else {
+    banner = '<div class="pc off"><div><b>○ My PC is off</b><span>Showing my saved work from the Google Sheet' +
+      (pc.lastSeen ? ' · PC last seen ' + esc(pc.lastSeen) : '') + '</span></div></div>' + status;
+  }
+
   return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<meta name="color-scheme" content="dark light"><title>My Work Log</title><style>' +
     ':root{--bg:#0f1115;--panel:#161a22;--panel2:#1c212b;--line:#262c38;--text:#e6e8ec;--text2:#b4bbc8;--mut:#8b93a1;--ok:#10b981;--warn:#f59e0b;--sky:#38bdf8}' +
@@ -216,8 +269,13 @@ function renderView(rows, o) {
     'ol{list-style:none;margin:0;padding:0 14px 12px}li{display:flex;gap:8px;padding:8px 0;border-top:1px dashed var(--line)}' +
     'li .n{color:var(--mut);font-weight:600;min-width:18px}li p{margin:2px 0 0;color:var(--text2)}.tag{font-size:12px;font-weight:650;color:var(--sky)}' +
     'footer{color:var(--mut);font-size:12px;text-align:center;margin-top:18px}@media (max-width:380px){.hrs{grid-template-columns:repeat(2,1fr)}}' +
+    '.pc{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 0;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--panel)}' +
+    '.pc b{display:block;font-size:14px}.pc span{font-size:12.5px;color:var(--mut)}.pc.on{border-color:color-mix(in srgb,var(--ok) 45%,transparent)}.pc.on b{color:var(--ok)}' +
+    '.pc.off b{color:var(--mut)}.go{display:inline-block;background:var(--ok);color:#05140e;font-weight:700;text-decoration:none;padding:10px 14px;border-radius:11px}' +
+    '.go.pulse{display:block;width:100%;text-align:center;font-size:16px;padding:14px;animation:pl 1.6s ease-in-out infinite}' +
+    '@keyframes pl{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.55)}50%{box-shadow:0 0 0 8px rgba(16,185,129,0)}}' +
     '</style></head><body><div class="wrap"><header><h1>' + esc(o.name || 'My Work Log') + '</h1><p>' +
-    esc([o.role, 'updated ' + o.generated].filter(Boolean).join(' · ')) + '</p></header>' +
+    esc([o.role, 'updated ' + o.generated].filter(Boolean).join(' · ')) + '</p></header>' + banner +
     '<div class="sum"><div><b>' + wk.tasks + '</b><span>tasks · last 7 days</span></div><div><b class="okc">' + hm(wk.total) +
     '</b><span>worked · ' + wk.days + ' day' + (wk.days === 1 ? '' : 's') + '</span></div><div><b class="' + (wk.extra ? 'warnc' : 'mut') + '">' +
     hm(wk.extra) + '</b><span>extra (over ' + (o.hours || 8) + 'h)</span></div></div>' + list +

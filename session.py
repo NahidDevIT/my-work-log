@@ -80,6 +80,11 @@ def shutdown():
     now = datetime.now(TZ)
     d = now.strftime("%Y-%m-%d")
     mark(d, "pc_off", now.replace(tzinfo=None).isoformat(timespec="seconds"))
+    try:                                          # the phone link switches to "PC is off" right away
+        from server import send_heartbeat
+        send_heartbeat(False)
+    except Exception:
+        pass
     end_of_day = now.strftime("%H:%M") >= AUTO.get("email_after", "16:00")
     log(f"PC shutting down — {'end of day: sheet + email' if end_of_day else 'before ' + AUTO.get('email_after', '16:00') + ': sheet only'}")
     run_day(d, *(["--email"] if end_of_day else []))
