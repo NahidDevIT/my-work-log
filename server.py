@@ -537,8 +537,13 @@ class H(BaseHTTPRequestHandler):
         if path == "/sw.js":
             return self.send(200, (HERE / "ui" / "sw.js").read_bytes(), "text/javascript",
                              {"Service-Worker-Allowed": "/"})
-        if re.fullmatch(r"/icons/[\w-]+\.png", path) and (HERE / "ui" / path.lstrip("/")).exists():
-            return self.send(200, (HERE / "ui" / path.lstrip("/")).read_bytes(), "image/png")
+        if path == "/favicon.ico":
+            return self.send(200, (HERE / "ui" / "icons" / "favicon.ico").read_bytes(), "image/x-icon",
+                             {"Cache-Control": "max-age=86400"})
+        m = re.fullmatch(r"/icons/([\w-]+)\.(png|svg)", path)
+        if m and (HERE / "ui" / path.lstrip("/")).exists():
+            return self.send(200, (HERE / "ui" / path.lstrip("/")).read_bytes(),
+                             "image/svg+xml" if m.group(2) == "svg" else "image/png")
         if path == "/login":
             if self.authed():
                 return self.send(302, b"", "text/plain", {"Location": "/"})
