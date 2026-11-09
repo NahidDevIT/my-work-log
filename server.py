@@ -420,6 +420,57 @@ def restart_server():
 LOGIN_PAGE = (HERE / "ui" / "login.html")
 
 
+# ---------------------------------------------------------------- PC on/off → the phone link (sheet script v5+)
+_pub_ip = {"t": 0, "v": ""}
+
+
+def public_ip():
+    """This network's public address — lets the phone page notice "same Wi-Fi" and open the live dashboard."""
+    if time.time() - _pub_ip["t"] > 1800:
+        try:
+            import urllib.request
+            v = urllib.request.urlopen("https://api.ipify.org", timeout=6).read().decode().strip()
+            _pub_ip["v"] = v if re.fullmatch(r"[\d.:a-fA-F]{3,45}", v) else ""
+        except Exception:
+            pass
+        _pub_ip["t"] = time.time()
+    return _pub_ip["v"]
+
+
+def send_heartbeat(online=True):
+    """Tell the sheet script whether this PC is on, and the live-dashboard link. Only for script v5+
+    (older scripts would treat an unknown action as a sheet write)."""
+    h = read_json(HERE / "sheet_webhook.json") or {}
+    if not (h.get("url") and h.get("view_key") and int(h.get("script_version") or 0) >= 5):
+        return None
+    sys.path.insert(0, str(HERE))
+    from push import call
+    r = remote_cfg()
+    urls = [f"http://{ip}:{PORT}" for ip in lan_ips()] if online and r.get("enabled") and r.get("hash") else []
+    return call({"action": "heartbeat", "online": bool(online), "urls": urls, "ip": public_ip() if urls else ""}, timeout=20)
+
+
+def heartbeat_loop():
+    time.sleep(5)
+    n = 0
+    while True:
+        try:
+            if n % 30 == 0:                      # re-check the script version every hour
+                sys.path.insert(0, str(HERE))
+                from push import call, hook
+                if hook():
+                    v = int(call({"action": "ping"}).get("version") or 1)
+                    h = read_json(HERE / "sheet_webhook.json") or {}
+                    if h.get("script_version") != v:
+                        h["script_version"] = v
+                        (HERE / "sheet_webhook.json").write_text(json.dumps(h, indent=2), encoding="utf-8")
+            send_heartbeat(True)
+        except Exception:
+            pass
+        n += 1
+        time.sleep(120)
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -567,6 +618,7 @@ class H(BaseHTTPRequestHandler):
                 os.chmod(HERE / "sheet_webhook.json", 0o600)
             except OSError:
                 pass
+            threading.Thread(target=send_heartbeat, daemon=True).start()     # tell the page right away
             return self.send(200, {"ok": True, "url": view_url()})
 
         if self.path == "/api/remote":                      # turn "open on my phone" on/off (this PC only)
@@ -732,4 +784,6 @@ if __name__ == "__main__":
     else:
         sys.exit(f"port {PORT} is busy")
     print(f"My Work Log → http://127.0.0.1:{PORT}" + ("  (also on my network)" if BIND_HOST == "0.0.0.0" else ""))
+    if not os.environ.get("WORKLOG_PORT"):          # test copies on another port never report to the phone link
+        threading.Thread(target=heartbeat_loop, daemon=True).start()
     srv.serve_forever()
