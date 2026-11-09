@@ -1,0 +1,21 @@
+# ── personal data: never committed ──
+config.yaml
+sheet_webhook.json
+mail_settings.json
+raw/
+digest/
+output/
+manual/
+sessions/
+profile/
+last_run.json
+*.log
+.python
+worklog_logoff.cmd
+.backup/
+# ── tooling ──
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+Thumbs.db

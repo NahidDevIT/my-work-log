@@ -1,0 +1,81 @@
+# ─────────────────────────────────────────────────────────────
+#  My Work Log — personal settings
+#  The installer (setup_config.py) creates config.yaml from this file.
+#  Edit freely; changes apply on the next collect / refresh.
+# ─────────────────────────────────────────────────────────────
+
+owner:
+  name: "__NAME__"
+  short_name: "__SHORT__"
+  role: "__ROLE__"
+  organization: "__ORG__"
+  email: "__EMAIL__"              # default recipient of the daily email
+  pronoun: "their"                # his / her / their — used in the AI instructions
+
+timezone_offset_hours: auto       # "auto" = this PC's time zone, or a number such as 6 or -5
+idle_gap_minutes: 30              # gaps longer than this count as idle (not work time)
+my_git_names: __GITNAMES__        # commits by these author names are "mine"
+only_my_work: true                # true = only MY work; teammates' commits are ignored
+
+# ── Automation ───────────────────────────────────────────────
+automation:
+  trigger: "shutdown"             # the day is saved when I shut down / sign out
+  email_after: "16:00"            # shutdown at/after this time = end of day → sheet + email; earlier = sheet only
+  workday_hours: __HOURS__        # dashboard countdown + "Extra" time beyond this
+  fallback_at: "23:50"            # if the PC is still on late at night, save + email then
+  catchup_since: "__TODAY__"      # next-boot catch-up never emails days before this
+  work_days: "__WORKDAYS__"
+  ai_summary: true                # write the day's summary with Claude Code (falls back to a rule-based draft)
+  auto_push: true                 # write the summary to the Google Sheet automatically
+  ai_model: "sonnet"              # Claude model alias used for the daily summary
+
+# ── Google Sheet (A = Date, B = Work, C = Total Working Hours) ──
+sheet:
+  name: "My Work Log"             # shown in the dashboard and the email
+  id: ""                          # optional, from the sheet URL
+  url: ""                         # optional, link shown in the email
+  # The private web-app address + key live in sheet_webhook.json (created by the installer).
+
+projects_root: "__PROJECTS__"     # where my git repositories live
+
+# ── Projects: folder name / keyword → label used in the sheet ──
+modules:
+__MODULES__
+
+# Labels the AI may use (most specific first) + extra rules for the AI
+domain_labels:
+__LABELS__
+ai_extra_rules: []
+
+# Dashboard groups (first match wins; regex on the label; the last one catches the rest)
+groups:
+  - {name: "Development",  icon: "code",   match: "dev|code|feature|api|backend|frontend|deploy|release|app"}
+  - {name: "Testing & QA", icon: "shield", match: "sqa|test|\\bqa\\b|playwright|selenium|cypress"}
+  - {name: "Meetings",     icon: "users",  match: "meeting|session|visit|training|call"}
+  - {name: "Docs & Other", icon: "file",   match: ""}
+
+vocabulary: []                    # names the AI should recognise, e.g. "Billing Portal (billing-web repo)"
+people: []                        # teammates' names (only mentioned when I hand work to them)
+
+# ── Sources ──────────────────────────────────────────────────
+file_scan_dirs: ["~/Desktop", "~/Documents", "~/Downloads"]
+file_skip_dirs: ["node_modules", ".git", "build", "dist", "target", ".angular", ".next", "venv", ".venv",
+                 "__pycache__", ".cache", "coverage", ".gradle", "bin", "obj", "vendor"]
+
+browser:
+  profiles: auto                  # every Chrome / Edge / Brave / Chromium / Firefox profile on this PC
+  block_domains:                  # personal / non-work sites — dropped entirely
+    - youtube.com
+    - facebook.com
+    - instagram.com
+    - x.com
+    - twitter.com
+    - tiktok.com
+    - netflix.com
+    - messenger.com
+    - web.whatsapp.com
+    - mail.google.com
+    - linkedin.com
+  drop_search_engines: true
+
+ignore_dirs: []                   # folders never logged (this app's own folder is always ignored)

@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Work Log</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E">
+<style>
+/* ───────── tokens: dark is the default ───────── */
+:root{
+  color-scheme:dark;
+  --bg:#0f1115;--bg-grad:#121620;--panel:#161a22;--panel-2:#1c212b;--panel-3:#232937;--line:#262c38;--line-2:#323a49;
+  --text:#e6e8ec;--text-2:#b4bbc8;--muted:#8b93a1;
+  --done:#10b981;--done-bg:rgba(16,185,129,.12);--prog:#f59e0b;--prog-bg:rgba(245,158,11,.12);--sky:#38bdf8;--sky-bg:rgba(56,189,248,.12);
+  --g1:#d95926;--g2:#2b95d6;--g3:#9085e9;--g4:#d55181;--g5:#199e70;--g6:#c9a227;--g-other:#8b93a1;
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 24px -12px rgba(0,0,0,.6);
+  --r:14px;
+}
+:root[data-theme=light]{
+  color-scheme:light;
+  --bg:#f6f7f9;--bg-grad:#eef1f6;--panel:#ffffff;--panel-2:#f3f5f8;--panel-3:#e9edf3;--line:#e2e6ec;--line-2:#d3d9e2;
+  --text:#14171c;--text-2:#3d4552;--muted:#667080;
+  --done:#059669;--done-bg:rgba(5,150,105,.10);--prog:#b45309;--prog-bg:rgba(217,119,6,.12);--sky:#0369a1;--sky-bg:rgba(3,105,161,.10);
+  --g1:#c94f1f;--g2:#1f7fc4;--g3:#6250d6;--g4:#c43a6e;--g5:#16865f;--g6:#9a7a10;--g-other:#7a8391;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px -14px rgba(16,24,40,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:radial-gradient(1200px 500px at 10% -10%,var(--bg-grad),transparent 60%),var(--bg);color:var(--text);
+  font:14px/1.55 "Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Bengali",sans-serif;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit}
+svg.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
+svg.i.sm{width:15px;height:15px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px 60px}
+.sp{flex:1}
+
+/* ───────── top bar ───────── */
+.top{display:flex;align-items:center;gap:14px;padding:18px 0 8px}
+.avatar{all:unset;box-sizing:border-box;position:relative;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;cursor:pointer;overflow:hidden;flex:none;
+  background:var(--panel-3);border:1px solid var(--line-2);color:var(--muted)}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar svg.i{width:26px;height:26px}
+.avatar .cam{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.5);color:#fff;opacity:0;transition:opacity .15s}
+.avatar .cam svg.i{width:18px;height:18px}
+.avatar:hover .cam,.avatar:focus-visible .cam{opacity:1}
+.avatar:focus-visible{outline:2px solid var(--done);outline-offset:2px}
+.avmenu{position:absolute;top:58px;left:0;z-index:40;background:var(--panel);border:1px solid var(--line-2);border-radius:12px;padding:6px;box-shadow:var(--shadow);display:grid;min-width:170px}
+.avmenu[hidden]{display:none}
+.avmenu button{all:unset;cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:13.5px;color:var(--text-2)}
+.avmenu button:hover,.avmenu button:focus-visible{background:var(--panel-2);color:var(--text)}
+.top{position:relative}
+.hello h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em}
+.hello p{margin:0;color:var(--muted);font-size:13px}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:var(--panel-2);padding:7px 12px;border-radius:10px;
+  cursor:pointer;text-decoration:none;white-space:nowrap;transition:border-color .15s,background .15s}
+.btn:hover{border-color:var(--muted)}
+.btn:disabled{opacity:.55;cursor:progress}
+.btn.primary{background:var(--done);border-color:var(--done);color:#05140e;font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--panel-2)}
+.btn.icon{padding:7px}
+
+/* ───────── clock banner ───────── */
+.clockbar{display:grid;grid-template-columns:1.25fr 1fr;margin-top:10px;overflow:hidden;
+  background:linear-gradient(120deg,color-mix(in srgb,var(--done) 9%,var(--panel)),var(--panel) 45%,color-mix(in srgb,var(--g2) 9%,var(--panel)))}
+.clockbar>div{padding:18px 24px;min-width:0}
+.clockbar .cd{border-left:1px solid var(--line)}
+.clockbar .lab{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em}
+.bigtime{font-size:clamp(46px,7.2vw,84px);font-weight:750;letter-spacing:-.035em;line-height:1;margin:8px 0 6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bigtime .sec{color:var(--muted);font-weight:600}
+.bigtime .ap{font-size:.32em;font-weight:700;letter-spacing:.02em;color:var(--muted);margin-left:.25em;vertical-align:.95em}
+.cdtime{font-size:clamp(34px,4.8vw,56px);font-weight:750;letter-spacing:-.03em;line-height:1;margin:10px 0 6px;font-variant-numeric:tabular-nums;color:var(--done);white-space:nowrap}
+.cdtime .u{font-size:.36em;color:var(--muted);font-weight:600;margin:0 .35em 0 .08em;letter-spacing:0}
+.cdtime.soon{color:var(--prog)}
+.clockbar .sub{color:var(--text-2);font-size:13px}
+.cdbar{height:6px;border-radius:6px;background:var(--panel-3);overflow:hidden;margin-top:12px}
+.cdbar i{display:block;height:100%;border-radius:6px;background:var(--done);transition:width 1s linear}
+.cdtime.soon~.cdbar i,.cdtime.over~.cdbar i{background:var(--prog)}
+.cdtime.over{color:var(--prog)}
+.cdworked{color:var(--text-2);font-size:14px;font-variant-numeric:tabular-nums}
+.cdworked b{color:var(--text);font-weight:650}
+
+/* ───────── sheet-entry popup ───────── */
+dialog.dlg{background:var(--panel);color:var(--text);border:1px solid var(--line-2);border-radius:16px;padding:0;width:min(600px,calc(100vw - 32px));max-height:calc(100vh - 40px);box-shadow:0 30px 80px -20px rgba(0,0,0,.6)}
+dialog.dlg::backdrop{background:rgba(5,8,12,.6);backdrop-filter:blur(2px)}
+.dlg .dh{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.dlg .dh h4{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}
+.dlg .dh .sub{color:var(--muted);font-size:12.5px}
+.dlg .db{padding:16px 18px}
+.dlg .where{color:var(--muted);font-size:12.5px;margin-bottom:12px}
+.dlg .acts{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ───────── hero ───────── */
+.hero{margin-top:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.weekcard{margin-top:14px;padding:12px 14px 14px}
+.daybar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.daytitle{font-size:18px;font-weight:700;letter-spacing:-.01em;margin:0 4px}
+.daybar .chips{margin-left:6px}
+.calwrap{position:relative;display:inline-flex}
+.calwrap input{position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0}
+.weekcard .week{margin-top:0}
+.weekcard .wd{background:var(--panel-2)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;border:1px solid transparent}
+.chip.synced{color:var(--done);background:var(--done-bg);border-color:color-mix(in srgb,var(--done) 35%,transparent)}
+.chip.approved{color:var(--sky);background:var(--sky-bg);border-color:color-mix(in srgb,var(--sky) 35%,transparent)}
+.chip.draft{color:var(--prog);background:var(--prog-bg);border-color:color-mix(in srgb,var(--prog) 35%,transparent)}
+.chip.empty{color:var(--muted);background:var(--panel-2);border-color:var(--line-2)}
+.stats{display:grid;grid-template-columns:1fr;gap:12px}
+.sumcard{padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.sumcard .sh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sumcard h4{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}
+.sumcard .upd{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+.sumcard .hl{margin:0;font-size:15px;color:var(--text-2)}
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mini.hrs{grid-template-columns:repeat(4,1fr)}
+dialog.dlg:has(.aw){width:min(580px,calc(100vw - 32px))}
+.aw .dh{padding:18px 22px}.aw .db{padding:20px 22px}.aw .df{padding:14px 22px}
+.aw .dh h4{font-size:16px}.aw .dh .sub{color:var(--muted);font-weight:500}
+.aw .db{display:grid;gap:14px}
+.seg{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;overflow-x:auto}
+.seg button{all:unset;flex:1;text-align:center;padding:8px 10px;border-radius:7px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.seg button:hover{color:var(--text-2)}
+.seg button.on{background:var(--panel-3);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.seg button:focus-visible{outline:2px solid var(--done)}
+.awrow{display:grid;grid-template-columns:1fr 140px;gap:10px}
+.awrow[hidden]{display:none}
+.aw textarea{resize:vertical;min-height:110px}
+.aw .field{padding:9px 11px}
+.timerow{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.timerow input{width:auto;flex:0 1 150px}
+.timerow .opt{font-size:12px;margin-left:auto}
+.dlg .df{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+.mini.hrs span .m{color:var(--sky)}
+.mini.hrs b{font-size:20px}
+.wd .w4{font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.wd .w4 .x{color:var(--prog);font-weight:600}
+.mini div{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column}
+.mini b{font-size:24px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+.mini span{font-size:12px;color:var(--muted)}
+.sumcard .acts{display:flex;gap:8px;flex-wrap:wrap}
+.sumcard pre.cell{margin:0}
+.sumcard .chev{transition:transform .2s}.sumcard .open .chev{transform:rotate(180deg)}
+.stat{padding:16px 18px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .lab{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12.5px;font-weight:500}
+.stat .num{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .sub{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.dbadge{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:2px 9px 2px 7px;border-radius:99px;background:var(--panel-2);border:1px solid var(--line-2);color:var(--text-2)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+
+/* status colours */
+.ok{color:var(--done)} .warn{color:var(--prog)}
+
+/* ───────── week strip ───────── */
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:14px}
+.wd{all:unset;cursor:pointer;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,transform .15s}
+.wd:hover{border-color:var(--line-2);transform:translateY(-1px)}
+.wd:focus-visible{outline:2px solid var(--done)}
+.wd.sel{border-color:var(--done);box-shadow:0 0 0 1px var(--done) inset}
+.wd .w1{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.wd .w2{font-size:18px;font-weight:700}
+.wd .w3{display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600}
+.wd .bar{height:4px;border-radius:4px;background:var(--panel-3);overflow:hidden}
+.wd .bar i{display:block;height:100%;border-radius:4px;background:var(--done)}
+.st-synced{color:var(--done)} .st-approved{color:var(--sky)} .st-draft{color:var(--prog)} .st-empty{color:var(--muted)}
+
+/* ───────── tabs ───────── */
+.tabs{display:flex;gap:4px;margin:22px 0 14px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:10px 14px;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--text-2)}
+.tab.on{color:var(--text);border-bottom-color:var(--done)}
+
+/* ───────── summary ───────── */
+.grid2{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.toolbar .note{color:var(--muted);font-size:12.5px;display:inline-flex;align-items:center;gap:6px}
+.dcard{margin-bottom:12px;overflow:hidden}
+.dhead{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px 16px}
+.dhead:focus-visible{outline:2px solid var(--done);outline-offset:-2px}
+.dicon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none}
+.dhead h3{margin:0;font-size:15px;font-weight:650}
+.dhead .cnt{font-size:12px;color:var(--muted)}
+.dhead .chev{margin-left:auto;color:var(--muted);transition:transform .2s}
+.dcard.closed .chev{transform:rotate(-90deg)}
+.dcard.closed .dbody{display:none}
+.dbody{border-top:1px solid var(--line);padding:4px 16px 8px}
+.task{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:12px 0;border-bottom:1px dashed var(--line)}
+.task:last-child{border-bottom:0}
+.task .n{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:600;font-size:13px;padding-top:1px;min-width:18px}
+.task .t{font-weight:600}
+.task .d{grid-column:2;color:var(--text-2)}
+.task .meta{grid-column:2;display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap}
+.status{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px}
+.status.done{color:var(--done);background:var(--done-bg)}
+.status.prog{color:var(--prog);background:var(--prog-bg)}
+.status.other{color:var(--sky);background:var(--sky-bg)}
+.sheet{padding:16px;position:sticky;top:14px}
+.sheet h4{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:8px}
+.sheet .where{color:var(--muted);font-size:12.5px;margin-bottom:12px}
+pre.cell{white-space:pre-wrap;word-break:break-word;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px;margin:0 0 12px;
+  font:12.5px/1.6 ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;max-height:420px;overflow:auto;color:var(--text-2)}
+.sheet .acts{display:flex;gap:8px;flex-wrap:wrap}
+.emptybox{padding:44px 20px;text-align:center;color:var(--muted)}
+.emptybox svg.i{width:34px;height:34px;color:var(--line-2);margin-bottom:8px}
+.emptybox h3{color:var(--text);margin:0 0 6px;font-size:16px}
+
+/* edit mode */
+.erow{display:grid;grid-template-columns:200px 1fr 150px 36px;gap:8px;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--panel)}
+.erow textarea{grid-column:1/4;min-height:60px;resize:vertical}
+.erow input,.erow select,.erow textarea,.field{background:var(--panel-2);border:1px solid var(--line-2);border-radius:9px;padding:7px 9px;width:100%}
+.erow input:focus,.erow textarea:focus,.erow select:focus,.field:focus{outline:2px solid color-mix(in srgb,var(--done) 60%,transparent);outline-offset:0}
+
+/* ───────── timeline ───────── */
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center}
+.fchip{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border-radius:99px;border:1px solid var(--line-2);color:var(--muted)}
+.fchip.on{color:var(--text);background:var(--panel-2)}
+.ev{display:grid;grid-template-columns:48px 22px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);align-items:start}
+.ev:last-child{border-bottom:0}
+.ev .tm{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12.5px;padding-top:1px}
+.ev .sx{color:var(--muted);padding-top:1px}
+.ev .tx{word-break:break-word;color:var(--text-2);font-size:13px}
+
+/* ───────── insights ───────── */
+.ins{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ins .card{padding:16px 18px}
+.ins h4{margin:0 0 2px;font-size:14px}
+.ins .cap{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+.timebar{position:relative;height:30px;background:var(--panel-2);border-radius:8px;overflow:hidden}
+.timebar span{position:absolute;top:4px;bottom:4px;background:var(--done);border-radius:4px;min-width:3px}
+.ticks{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:6px;font-variant-numeric:tabular-nums}
+.hbar{display:grid;grid-template-columns:150px 1fr 44px;gap:10px;align-items:center;margin:9px 0;font-size:13px}
+.hbar .lbl{display:flex;align-items:center;gap:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+.hbar .trk{height:10px;background:var(--panel-2);border-radius:5px}
+.hbar .fil{height:100%;border-radius:0 4px 4px 0;min-width:4px}
+.hbar .val{color:var(--text-2);text-align:right;font-variant-numeric:tabular-nums}
+.vbars{display:flex;align-items:flex-end;gap:10px;height:170px;padding-top:6px}
+.vbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.vbar .v{font-size:11.5px;color:var(--text-2);font-variant-numeric:tabular-nums;min-height:16px}
+.vbar .b{width:100%;max-width:38px;border-radius:4px 4px 0 0;background:var(--g2);min-height:2px}
+.vbar .x{font-size:11.5px;color:var(--muted)}
+.vbar.sel .b{background:var(--done)}
+
+/* ───────── settings ───────── */
+.set{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.set .card{padding:18px 20px}
+.setupbox summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px}
+.setupbox summary::-webkit-details-marker{display:none}
+.setupbox summary h4{margin:0}
+.setupbox .hint{margin-left:auto;color:var(--muted);font-size:12.5px}
+.setupbox[open] .hint{display:none}
+.set h4{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:8px 12px;font-size:13.5px;margin:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--text-2)}
+ol.steps b{color:var(--text)}
+.flow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 2px}
+.flow .node{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:var(--panel-2);border:1px solid var(--line-2);font-weight:600;font-size:13px}
+.flow .arr{color:var(--muted)}
+code{background:var(--panel-2);padding:1px 6px;border-radius:6px;font-size:12.5px}
+
+/* ───────── tooltip & toast ───────── */
+#tip{position:fixed;pointer-events:none;z-index:50;background:var(--panel-3);color:var(--text);border:1px solid var(--line-2);border-radius:8px;padding:6px 9px;font-size:12px;opacity:0;transition:opacity .1s;max-width:300px;box-shadow:var(--shadow)}
+#toast{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;align-items:center;gap:8px;background:var(--panel-3);border:1px solid var(--line-2);border-radius:12px;padding:11px 14px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;max-width:440px;box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:none}
+.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+
+@media (max-width:1000px){.clockbar{grid-template-columns:1fr}.clockbar .cd{border-left:0;border-top:1px solid var(--line)}.grid2{grid-template-columns:1fr}.sheet{position:static}.ins,.set{grid-template-columns:1fr}}
+@media (max-width:700px){
+  .wrap{padding:0 16px 40px}.stats{grid-template-columns:1fr}.mini.hrs{grid-template-columns:repeat(2,1fr)}.clockbar>div{padding:16px}
+  .week{grid-template-columns:repeat(7,minmax(74px,1fr));overflow-x:auto}
+  .erow{grid-template-columns:1fr 36px}.erow input,.erow select,.erow textarea{grid-column:1/2}
+  .hbar{grid-template-columns:100px 1fr 36px}.hello p,#runDay .lbl{display:none}.daytitle{font-size:16px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <button class="avatar" id="avatar" aria-label="Profile photo" aria-haspopup="menu" data-tip="Profile photo"></button>
+    <div class="avmenu" id="avMenu" role="menu" hidden>
+      <button role="menuitem" id="avUpload"><svg class="i sm"><use href="#i-camera"/></svg>Upload photo</button>
+      <button role="menuitem" id="avRemove"><svg class="i sm"><use href="#i-x"/></svg>Remove photo</button>
+    </div>
+    <input type="file" id="avFile" accept="image/png,image/jpeg,image/webp" hidden>
+    <div class="hello"><h1 id="hello">Hello</h1><p id="role"></p></div>
+    <span class="sp"></span>
+    <button class="btn primary" id="runDay" data-tip="Collect → AI summary → sheet, for the selected day"><svg class="i sm"><use href="#i-zap"/></svg><span class="lbl">Save my day now</span></button>
+    <button class="btn icon" id="theme" data-tip="Light / dark" aria-label="Toggle theme"></button>
+  </header>
+
+  <section class="card clockbar" aria-label="Clock and countdown">
+    <div><div class="lab"><svg class="i sm"><use href="#i-clock"/></svg>Current time</div>
+      <div class="bigtime" id="bigTime">--:--</div>
+      <div class="sub" id="bigDate"></div></div>
+    <div class="cd"><div class="lab" id="cdLab"><svg class="i sm"><use href="#i-zap"/></svg>Workday</div>
+      <div class="cdtime" id="cdTime">--</div>
+      <div class="cdworked" id="cdWorked"></div>
+      <div class="cdbar"><i id="cdBar" style="width:0"></i></div></div>
+  </section>
+
+  <section class="hero"><div class="stats" id="stats"></div></section>
+
+  <section class="card weekcard" aria-label="Pick a day">
+    <div class="daybar">
+      <button class="btn icon ghost" id="prev" data-tip="Previous day" aria-label="Previous day"><svg class="i"><use href="#i-left"/></svg></button>
+      <h2 class="daytitle" id="dayTitle">—</h2>
+      <button class="btn icon ghost" id="next" data-tip="Next day" aria-label="Next day"><svg class="i"><use href="#i-right"/></svg></button>
+      <span class="sp"></span>
+      <button class="btn" id="todayBtn">Today</button>
+      <span class="calwrap"><button class="btn icon" id="calBtn" data-tip="Pick a date" aria-label="Pick a date"><svg class="i"><use href="#i-cal"/></svg></button><input type="date" id="pick" tabindex="-1" aria-hidden="true"></span>
+    </div>
+    <div class="week" id="week"></div>
+  </section>
+
+  <nav class="tabs" id="tabs"></nav>
+  <main id="pane"></main>
+</div>
+<dialog class="dlg" id="addDlg" aria-labelledby="addTitle"></dialog>
+<div id="tip"></div>
+<div id="toast" role="status"></div>
+
+<!-- Lucide icons (inline, ISC licence) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-dasharray="3 3"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M9.94 14.06 4 12l5.94-2.06L12 4l2.06 5.94L20 12l-5.94 2.06L12 20z"/><path d="M19 3v4M21 5h-4"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="M12 12v9M16 16l-4-4-4 4"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></symbol>
+  <symbol id="i-commit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-term" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6M12 19h8"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-kanban" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7v7M12 7v4M16 7v9"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-dl" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="9" r="3"/><path d="M6 9v6M18 12c0 3-3 3-6 3H9"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+</svg>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ic = (n, cls="") => `<svg class="i ${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const ls = {get:k=>{try{return localStorage.getItem(k)}catch{return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch{}}};
+
+/* Domains — fixed hue order, CVD-validated for dark + light surfaces */
+/* Project groups come from config.yaml ("groups"); the last group catches everything else */
+let DOMAINS = {other:{name:"Other", icon:"file", color:"var(--g-other)", re:null}};
+function buildGroups(groups){
+  const gs=(groups&&groups.length)?groups:[{name:"Other",icon:"file",match:""}];
+  DOMAINS={};
+  gs.forEach((g,i)=>{ const last=i===gs.length-1;
+    let re=null; try{ re=g.match?new RegExp(g.match,"i"):null }catch{}
+    DOMAINS[last?"other":"g"+i]={name:g.name, icon:g.icon||"file", color:last?"var(--g-other)":`var(--g${(i%6)+1})`, re}; });
+}
+function domainOf(m){
+  const s=(m||"").toLowerCase();
+  for(const [k,d] of Object.entries(DOMAINS)) if(k!=="other" && d.re && d.re.test(s)) return k;
+  return "other";
+}
+const SRC = {vscode:["VS Code","code"],git:["My commit","git"],"git-action":["Git action","commit"],claude:["Claude Code","chat"],"claude-cmd":["Claude command","term"],
+  opencode:["OpenCode","chat"],"opencode-cmd":["OpenCode command","term"],browser:["Browser","globe"],"files-opened":["Opened file","file"],
+  "files-changed":["File changed","save"],terminal:["Terminal","term"]};
+const STATE = {synced:["In sheet","check"],approved:["Saved","check"],draft:["Draft","clock"],empty:["No entry","circle"]};
+const stateChip = s => `<span class="chip ${s}">${ic(STATE[s][1],"sm")}${STATE[s][0]}</span>`;
+function statusPill(st){
+  const s=(st||"").toLowerCase();
+  if(s.startsWith("complete")) return `<span class="status done">${ic("check","sm")}Completed</span>`;
+  if(s.includes("progress")) return `<span class="status prog">${ic("clock","sm")}In progress</span>`;
+  return `<span class="status other">${ic("info","sm")}${esc(st||"Noted")}</span>`;
+}
+
+const S = {date:null, day:null, status:null, over:null, tab:new URLSearchParams(location.search).get("tab")||ls.get("tab")||"summary", edit:false, srcOff:new Set(), q:"", open:{}};
+
+/* helpers */
+const today = () => { const d=new Date(); return new Date(d - d.getTimezoneOffset()*6e4).toISOString().slice(0,10) };
+const addDays = (d,n) => { const x=new Date(d+"T12:00:00Z"); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10) };
+const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});
+const hm = m => m>=60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`;
+const pad = n => String(n).padStart(2,"0");
+function toast(msg, icon="info"){ const t=$("#toast"); t.innerHTML=ic(icon)+`<span>${esc(msg)}</span>`; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),4000) }
+async function api(path, body){
+  const r = await fetch(path, body ? {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)} : {});
+  const j = await r.json().catch(()=>({})); if(!r.ok && !("ok" in j)) throw new Error(j.error||r.status); return j;
+}
+async function busy(btn, label, fn){ const old=btn.innerHTML; btn.disabled=true; btn.innerHTML=ic("refresh","sm spin")+label;
+  try{ return await fn() } catch(e){ toast(e.message,"alert") } finally{ if(btn.isConnected){btn.disabled=false; btn.innerHTML=old} } }
+const sheetText = items => items.map((it,i)=>`${i+1}. ${(it.module||"").startsWith("[")?it.module:"["+it.module+"]"} --> ${it.details||it.action}`).join("\n");
+
+/* tooltip */
+const tip=$("#tip");
+document.addEventListener("mousemove",e=>{ const t=e.target.closest("[data-tip]"); if(!t){tip.style.opacity=0;return}
+  tip.textContent=t.dataset.tip; tip.style.opacity=1; tip.style.left=Math.min(e.clientX+14, innerWidth-tip.offsetWidth-8)+"px"; tip.style.top=(e.clientY+16)+"px" });
+
+/* theme — dark by default */
+function setTheme(t){ document.documentElement.dataset.theme=t; $("#theme").innerHTML=ic(t==="light"?"moon":"sun"); ls.set("theme",t) }
+setTheme(ls.get("theme")||"dark");
+$("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="light"?"dark":"light");
+
+/* header */
+function renderHeader(){
+  const o=S.status.owner, h=new Date().getHours();
+  renderAvatar();
+  $("#hello").textContent = `${h<12?"Good morning":h<17?"Good afternoon":"Good evening"}, ${o.short_name}`;
+  $("#role").textContent = o.role;
+  document.title = `${o.short_name}'s Work Log`;
+}
+
+/* profile photo — default user icon, click to upload / remove */
+function renderAvatar(){
+  const v=S.status?.avatar, el=$("#avatar");
+  const key=v?"img"+v:"icon"; if(el.dataset.k===key) return; el.dataset.k=key;
+  el.innerHTML=(v?`<img src="/avatar?v=${v}" alt="">`:ic("user"))+`<span class="cam">${ic("camera")}</span>`;
+  $("#avRemove").hidden=!v;
+}
+$("#avatar").onclick=e=>{ e.stopPropagation(); const m=$("#avMenu");
+  if(!S.status?.avatar){ $("#avFile").click(); return; }      // no photo yet → straight to the file picker
+  m.hidden=!m.hidden; if(!m.hidden) $("#avUpload").focus(); };
+document.addEventListener("click",e=>{ if(!e.target.closest("#avMenu")) $("#avMenu").hidden=true; });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("#avMenu").hidden=true; });
+$("#avUpload").onclick=()=>{ $("#avMenu").hidden=true; $("#avFile").click(); };
+$("#avRemove").onclick=async()=>{ $("#avMenu").hidden=true; const r=await api("/api/avatar",{remove:true}); S.status.avatar=r.avatar; renderAvatar(); toast("Photo removed","check"); };
+$("#avFile").onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  if(!/^image\/(png|jpeg|webp)$/.test(f.type)) return toast("Choose a PNG, JPG or WebP picture","alert");
+  try{
+    const img=await createImageBitmap(f), n=Math.min(img.width,img.height), c=document.createElement("canvas");
+    c.width=c.height=256; c.getContext("2d").drawImage(img,(img.width-n)/2,(img.height-n)/2,n,n,0,0,256,256);   // centre square crop
+    const r=await api("/api/avatar",{data:c.toDataURL("image/jpeg",0.9)});
+    if(!r.ok) throw new Error(r.error||"Upload failed");
+    S.status.avatar=r.avatar; renderAvatar(); toast("Photo updated","check");
+  }catch(err){ toast(err.message||"Could not read this picture","alert") }
+};
+
+const TZLABEL = (()=>{ const z=Intl.DateTimeFormat().resolvedOptions().timeZone||"", o=-new Date().getTimezoneOffset();
+  return `${z.split("/").pop().replace(/_/g," ")} (GMT${o>=0?"+":"-"}${Math.floor(Math.abs(o)/60)}${Math.abs(o)%60?":"+pad(Math.abs(o)%60):""})` })();
+/* clock banner — current time + workday countdown (starts when the PC is turned on, or my first activity) */
+const t12 = t => t.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+const hms = ms => { let s=Math.max(0,Math.floor(ms/1000)); return [Math.floor(s/3600),Math.floor(s%3600/60),s%60] };
+const dur = ms => { const [h,m,s]=hms(ms); return `${h}h ${pad(m)}m ${pad(s)}s` };
+function workStart(){ const w=S.status?.workday; return w?.start ? new Date(w.start) : null }
+function tick(){
+  const now=new Date();
+  const [h,m,sec]=[now.getHours(),now.getMinutes(),now.getSeconds()];
+  $("#bigTime").innerHTML=`${(h%12)||12}:${pad(m)}<span class="sec">:${pad(sec)}</span><span class="ap">${h<12?"AM":"PM"}</span>`;
+  $("#bigDate").textContent=now.toLocaleDateString("en-US",{weekday:"long",day:"numeric",month:"long",year:"numeric"})+" · "+TZLABEL;
+  tickHours(now);
+  const w=S.status?.workday, st=workStart(), el=$("#cdTime");
+  if(!w) return;
+  if(!st){ el.className="cdtime"; el.textContent="--:--:--"; $("#cdLab").innerHTML=ic("zap","sm")+"Workday · starts with my first activity"; $("#cdWorked").textContent=""; $("#cdBar").style.width="0"; return; }
+  const total=w.hours*3600e3, worked=now-st, left=total-worked, end=new Date(+st+total);
+  const u=([a,b,c])=>`${pad(a)}<span class="u">h</span>${pad(b)}<span class="u">m</span>${pad(c)}<span class="u">s</span>`;
+  const startTxt = (w.source==="pc_on"?"PC on at ":"Started at ")+t12(st);
+  if(left>0){
+    el.className="cdtime"+(left<30*60e3?" soon":""); el.innerHTML=u(hms(left));
+    $("#cdLab").innerHTML=ic("zap","sm")+`Workday countdown · ${startTxt} · ends ${t12(end)}`;
+  } else {
+    el.className="cdtime over"; el.innerHTML="+"+u(hms(-left));
+    $("#cdLab").innerHTML=ic("clock","sm")+`Extra time · ${w.hours}h completed at ${t12(end)}`;
+  }
+  $("#cdWorked").innerHTML = left>0 ? `Worked <b>${dur(worked)}</b> of ${w.hours}h`
+    : `Worked <b>${dur(worked)}</b> · ${w.hours}h done · Extra <b style="color:var(--prog)">${dur(-left)}</b>`;
+  $("#cdBar").style.width=`${Math.min(100,worked/total*100).toFixed(2)}%`;
+}
+tick(); setTimeout(()=>{tick(); setInterval(tick,1000)}, 1000-new Date().getMilliseconds());
+setInterval(()=>{ if(document.visibilityState==="visible" && !S.edit && !$("#addDlg").open) refreshAll() }, 5*60e3);   // keep today's activity fresh
+
+/* Save my day now (top-right) */
+function renderAuto(){}
+$("#runDay").onclick=e=>busy(e.currentTarget,"<span class=\"lbl\"> Saving…</span>",async()=>{
+  const r=await api("/api/run-day",{date:S.date});
+  const push=(r.log||"").split("\n").find(l=>/push:/.test(l))||"";
+  const row=push.match(/row (\d+)/);
+  toast(!r.ok?"Could not save: "+r.log:row?`Saved — sheet updated (row ${row[1]})`:"Saved"+(push?" · "+push.replace(/^.*push:\s*/,""):""), r.ok?"check":"alert");
+  await refreshAll(); });
+
+/* week strip */
+function renderWeek(){
+  const lim=(S.status?.workday?.hours||8)*60;
+  $("#week").innerHTML = S.over.days.map(d=>{
+    const x=new Date(d.date+"T12:00:00"), st=STATE[d.state];
+    return `<button class="wd ${d.date===S.date?"sel":""}" data-d="${d.date}" data-tip="${esc(fmtLong(d.date))} — ${st[0]} · ${d.items} item(s) · ${d.work_min?hmm(d.work_min)+" worked":"no work hours"}">
+      <div class="w1">${x.toLocaleDateString("en-US",{weekday:"short"})}${d.date===today()?`<span class="st-synced" style="font-size:10px">Today</span>`:""}</div>
+      <div class="w2">${x.getDate()} <span style="font-size:12px;color:var(--muted);font-weight:500">${x.toLocaleDateString("en-US",{month:"short"})}</span></div>
+      <div class="w3 st-${d.state}">${ic(st[1],"sm")}${st[0]}</div>
+      <div class="w4">${d.work_min?`${hmm(d.work_min)}${d.work_min>lim?` <span class="x">+${hmm(d.work_min-lim)}</span>`:""}`:"—"}</div>
+      <div class="bar"><i style="width:${Math.min(100,d.work_min/lim*100)}%;${d.work_min>lim?"background:var(--prog)":""}"></i></div></button>`}).join("");
+  $$(".wd").forEach(b=>b.onclick=()=>openDay(b.dataset.d));
+}
+
+/* hero: day + stat tiles */
+function dayState(o){ if(!o||!o.items?.length) return "empty"; if(o.pushed_text&&o.pushed_text===o.work_summary_text) return "synced"; return o.approved?"approved":"draft" }
+function renderHero(){
+  const D=S.day, o=D.summary, raw=D.raw, items=o?.items||[];
+  $("#dayTitle").textContent = fmtLong(S.date);
+  const done=items.filter(i=>/^complete/i.test(i.status)).length, prog=items.length-done;
+  const doms=[...new Set(items.map(i=>i.module).filter(m=>m&&!m.startsWith("[")))];
+  const list=a=>a.length<2?a.join(""):a.slice(0,-1).join(", ")+" and "+a.at(-1);
+  const doneMods=[...new Set(items.filter(i=>/^complete/i.test(i.status)).map(i=>i.module).filter(m=>m&&!m.startsWith("[")))];
+  const hl = !items.length ? "Nothing logged yet." : doneMods.length ? `Completed work across ${list(doneMods)}.` : `Work in progress on ${list(doms)}.`;
+  const synced=dayState(o)==="synced", behind=items.length && !synced && S.status.sheet_sync;
+  const upd = synced && o.pushed_at ? `<span class="upd"><span class="ok">${ic("check","sm")}</span>Updated ${new Date(o.pushed_at).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>` : "";
+  const isToday=S.date===today();
+  $("#stats").innerHTML = `<div class="card sumcard">
+      <div class="sh"><h4>${ic("sheet","sm")}Overall summary · ${isToday?"Today":esc(new Date(S.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",day:"numeric",month:"short"}))}</h4><span class="sp"></span>${upd}</div>
+      <p class="hl" id="sumHl">${S.busyAI?`${ic("spark","sm spin")} AI is writing…`:esc(hl)}</p>
+      ${hoursRow()}
+      <div class="mini"><div><b class="ok">${done}</b><span>Completed</span></div><div><b style="color:var(--sky)">${doms.length}</b><span>Projects</span></div><div><b class="warn">${prog}</b><span>In progress</span></div></div>
+      <div class="acts">
+        <button class="btn ${S.sumOpen?"open":""}" id="sumToggle" ${items.length?"":"disabled"} aria-expanded="${!!S.sumOpen}">${S.sumOpen?"Hide full summary":"View full summary"} <span class="chev">${ic("down","sm")}</span></button>
+        <button class="btn" id="copySum" ${items.length?"":"disabled"}>${ic("copy","sm")}Copy</button>
+        <button class="btn ${items.length?"":"primary"}" id="regenBtn">${ic("spark","sm")}${items.length?"Regenerate":"Write with AI"}</button>
+        ${behind?`<button class="btn primary" id="syncNow">${ic("upload","sm")}Update the sheet</button>`:""}
+      </div>
+      <pre class="cell" id="sumText" ${S.sumOpen&&items.length?"":"hidden"}>${esc(o?.work_summary_text||"")}</pre>
+    </div>`;
+  const D2=S.day;
+  $("#sumToggle").onclick=()=>{ S.sumOpen=!S.sumOpen; renderHero(); };
+  $("#copySum").onclick=async()=>{ try{await navigator.clipboard.writeText(D2.summary?.work_summary_text||"");toast("Copied — paste into column B","copy")}catch{toast("The browser blocked copying","alert")} };
+  const sn=$("#syncNow"); if(sn) sn.onclick=e=>busy(e.currentTarget," Updating…",async()=>{ let r=await api("/api/push",{date:S.date});
+    if(r.result?.status==="cell_not_empty" && confirm(`Row ${r.result.row} has text I typed in the sheet:\n\n${r.result.current}\n\nReplace it?`)) r=await api("/api/push",{date:S.date,force:true});
+    toast(r.ok?`Sheet updated (row ${r.result.row})`:`Not updated: ${r.result?.status||r.result?.error||r.log}`, r.ok?"check":"alert"); await refreshAll(); });
+  $("#regenBtn").onclick=e=>busy(e.currentTarget," AI is writing…",async()=>{
+    S.busyAI=true; $("#syncNow")?.remove(); $("#sumHl").innerHTML=`${ic("spark","sm spin")} AI is writing…`;
+    try{
+      if(!D2.raw) await api("/api/collect",{date:S.date});
+      const r=await api("/api/ai-summary",{date:S.date});
+      S.busyAI=false;
+      toast(r.ok?"Rewritten by AI"+pushNote(r.push):"AI failed: "+r.log, r.ok?"spark":"alert");
+      await refreshAll();
+      if(r.ok && S.sumOpen) typeInto($("#sumText"), S.day.summary?.work_summary_text||"");
+    } finally { S.busyAI=false }
+  });
+}
+
+/* tabs */
+const TABS=[["summary","My day","check"],["timeline","Activity timeline","activity"],["insights","Insights","layers"],["settings","Settings & help","sliders"]];
+function renderTabs(){
+  $("#tabs").innerHTML = TABS.map(([k,l,i])=>`<button class="tab ${S.tab===k?"on":""}" data-t="${k}">${ic(i,"sm")}${l}</button>`).join("");
+  $$(".tab").forEach(t=>t.onclick=()=>{S.tab=t.dataset.t;ls.set("tab",S.tab);S.edit=false;renderTabs()});
+  ({summary:renderSummary,timeline:renderTimeline,insights:renderInsights,settings:renderSettings})[S.tab]();
+}
+function bindCollapse(){ $$(".dcard .dhead").forEach(h=>h.onclick=()=>{const c=h.parentElement;c.classList.toggle("closed");S.open[c.dataset.k]=!c.classList.contains("closed")}) }
+const dicon = d => `<span class="dicon" style="background:color-mix(in srgb,${d.color} 16%,transparent);color:${d.color}">${ic(d.icon)}</span>`;
+
+/* My day */
+function renderSummary(){
+  if(S.edit) return renderEditor();
+  const D=S.day, o=D.summary, items=o?.items||[], synced=dayState(o)==="synced";
+  const groups={}; items.forEach((it,i)=>(groups[domainOf(it.module)]??=[]).push([i,it]));
+  const cards = Object.keys(DOMAINS).filter(k=>groups[k]).map(k=>{ const d=DOMAINS[k], g=groups[k];
+    return `<section class="card dcard ${S.open[k]===false?"closed":""}" data-k="${k}">
+      <button class="dhead" aria-expanded="${S.open[k]!==false}">${dicon(d)}
+        <span><h3>${d.name}</h3><span class="cnt">${g.length} item${g.length>1?"s":""} · ${[...new Set(g.map(([,it])=>it.module))].map(esc).join(", ")}</span></span>
+        <span class="chev">${ic("down")}</span></button>
+      <div class="dbody">${g.map(([i,it])=>`<div class="task"><span class="n">${i+1}.</span><span class="t">${esc(it.action||it.module)}</span>
+        <span class="d">${esc(it.details)}</span><span class="meta">${statusPill(it.status)}<span class="dbadge"><span class="dot" style="background:${d.color}"></span>${esc(it.module)}</span>${it.manual?manualBadge(it):""}</span></div>`).join("")}</div></section>`}).join("");
+  $("#pane").innerHTML = `<div>
+      <div class="toolbar">
+        <button class="btn" id="editBtn">${ic("pencil","sm")}${items.length?"Edit":"Write it myself"}</button>
+        <button class="btn" id="addWorkBtn">${ic("plus","sm")}Add work</button>
+      </div>
+      ${items.length?cards:`<div class="card emptybox">${ic("spark")}<h3>No entry for this day yet</h3>
+        <div>${D.raw?.events?.length?"My activity is collected — press “Write with AI” above, or add work myself.":D.raw?"No activity was recorded on this PC for this day.":"Collect this day first, then let AI write it up."}</div></div>`}
+    </div>`;
+  bindCollapse();
+  $$(".rmman").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(!confirm("Remove this entry?")) return;
+    busy(b,"",async()=>{ const r=await api("/api/manual/delete",{date:S.date,id:b.dataset.id}); toast("Removed"+pushNote(r.push),"check"); await refreshAll(); }) });
+  $("#editBtn").onclick=()=>{S.edit=true;renderSummary()};
+  $("#addWorkBtn").onclick=openAddWork;
+}
+/* Working hours for the selected day (summary card) — live for today */
+const hmm = m => `${Math.floor(m/60)}h ${pad(m%60)}m`;
+function hoursRow(){
+  const h=S.day.hours;
+  if(!h) return `<div class="mini hrs"><div><b>—</b><span>Total work hours</span></div><div><b>—</b><span>Start</span></div><div><b>—</b><span>End</span></div><div><b>—</b><span>Extra</span></div></div>`;
+  return `<div class="mini hrs">
+    <div><b class="ok" id="hTotal">${hmm(h.minutes)}</b><span>Total work hours</span></div>
+    <div><b>${t12(new Date(h.start))}</b><span>Start${h.source==="pc_on"?" · PC on":h.source==="manual"?" · my entry":""}</span></div>
+    <div><b id="hEnd">${t12(new Date(h.end))}</b><span>${h.live?"End · so far":"End"}</span></div>
+    <div><b id="hExtra" style="color:${h.extra?"var(--prog)":"var(--muted)"}">${hmm(h.extra)}</b><span>Extra (over ${Math.round(h.limit/60)}h)</span></div></div>`;
+}
+function tickHours(now){
+  const h=S.day?.hours; if(!h?.live || S.date!==today()) return;
+  const m=Math.floor((now-new Date(h.start))/60000), x=Math.max(0,m-h.limit);
+  const t=$("#hTotal"), e=$("#hEnd"), xe=$("#hExtra"); if(!t) return;
+  t.textContent=hmm(m); e.textContent=t12(now); xe.textContent=hmm(x); xe.style.color=x?"var(--prog)":"var(--muted)";
+}
+
+/* Overall summary panel (My day, right side) — exactly what is in the sheet */
+function pushNote(r){
+  if(!r) return "";
+  if(r.ok) return ` — sheet updated (row ${r.row})`;
+  if(r.status==="cell_not_empty") return ` — row ${r.row} has text I typed in the sheet, open Sheet entry to replace it`;
+  if(r.status==="sheet_sync_off") return "";
+  return ` — sheet not updated (${r.status||r.error||"error"})`;
+}
+function typeInto(el, text){                 // show the new AI text being written
+  if(!el) return; el.textContent=""; let i=0; const step=Math.max(2,Math.ceil(text.length/90));
+  const t=setInterval(()=>{ i+=step; el.textContent=text.slice(0,i); if(i>=text.length){ clearInterval(t); el.textContent=text } }, 16);
+}
+
+/* Add work manually (popup) — work, meetings, sessions, visits … with time */
+const mods = () => [...new Set([...(S.status?.domain_labels||[]), ...((S.day?.summary?.items||[]).map(i=>i.module).filter(m=>m&&!m.startsWith("[")))])];
+const KINDS=[["Work","check"],["Meeting","users"],["Session","chat"],["Visit","globe"],["Training","layers"],["Other","info"]];
+const t12s = hm => { if(!hm) return ""; const [h,m]=hm.split(":").map(Number); return `${(h%12)||12}:${pad(m)} ${h<12?"AM":"PM"}` };
+function manualBadge(it){
+  const k=KINDS.find(x=>x[0]===it.kind)||KINDS[5], time=it.start?(t12s(it.start)+(it.end?"–"+t12s(it.end):"")):"";
+  return `<span class="dbadge" style="color:var(--sky);border-color:color-mix(in srgb,var(--sky) 35%,transparent)">${ic(k[1],"sm")}${esc(it.kind)}${time?" · "+esc(time):""} · added by me</span>
+    <button class="btn icon ghost rmman" data-id="${esc(it.id)}" data-tip="Remove" aria-label="Remove entry" style="padding:3px">${ic("x","sm")}</button>`;
+}
+function openAddWork(){
+  const dlg=$("#addDlg"); let kind="Work";
+  const ph={Work:"e.g. Tested the registration flow and reported 3 issues",Meeting:"e.g. Meeting with the team lead on the release plan",
+    Session:"e.g. QA session with the development team",Visit:"e.g. Visited the client site to check the installation",Training:"e.g. Trained new staff on the reporting module",Other:"What I did"};
+  dlg.innerHTML=`<form method="dialog" id="addForm" class="aw">
+    <div class="dh"><h4 id="addTitle">Add work <span class="sub">· ${esc(new Date(S.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",day:"numeric",month:"short"}))}</span></h4><span class="sp"></span>
+      <button type="button" class="btn icon ghost" id="addClose" aria-label="Close">${ic("x")}</button></div>
+    <div class="db">
+      <div class="seg" role="radiogroup" aria-label="Type">${KINDS.map(([k])=>`<button type="button" data-k="${k}" class="${k==="Work"?"on":""}" role="radio" aria-checked="${k==="Work"}">${k}</button>`).join("")}</div>
+      <div class="awrow" id="awWorkOnly">
+        <input class="field" id="awMod" list="modsAdd" placeholder="Project" aria-label="Project">
+        <select class="field" id="awStatus" aria-label="Status"><option>Completed</option><option>In Progress</option></select></div>
+      <datalist id="modsAdd">${mods().map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
+      <textarea class="field" id="awText" rows="3" placeholder="${ph.Work}" aria-label="What I did" required></textarea>
+      <div class="timerow"><span>Time</span><input class="field" type="time" id="awFrom" aria-label="From"><span class="dash">–</span><input class="field" type="time" id="awTo" aria-label="To"><span class="opt" id="awOpt">optional</span></div>
+    </div>
+    <div class="df"><button type="button" class="btn ghost" id="awCancel">Cancel</button><button class="btn primary" id="awSave" type="submit">Add</button></div></form>`;
+  const close=()=>dlg.close();
+  $("#addClose").onclick=close; $("#awCancel").onclick=close;
+  dlg.querySelectorAll(".seg button").forEach(c=>c.onclick=()=>{ kind=c.dataset.k;
+    dlg.querySelectorAll(".seg button").forEach(x=>{x.classList.toggle("on",x===c);x.setAttribute("aria-checked",x===c)});
+    $("#awWorkOnly").hidden = kind!=="Work"; $("#awText").placeholder=ph[kind]; $("#awOpt").hidden = kind!=="Work"; $("#awText").focus(); });
+  $("#addForm").onsubmit=e=>{ e.preventDefault();
+    const work=kind==="Work";
+    const entry={kind, module:work?$("#awMod").value.trim():"", text:$("#awText").value.trim(), start:$("#awFrom").value, end:$("#awTo").value, status:work?$("#awStatus").value:"Completed"};
+    if(!entry.text) return toast("Write what I did","alert");
+    if(!work && !entry.start) return toast("Add the time","alert");
+    if(entry.end && !entry.start) return toast("Add the start time too","alert");
+    if(entry.start && entry.end && entry.end<=entry.start) return toast("End time must be after start","alert");
+    busy($("#awSave")," Adding…",async()=>{
+      const r=await api("/api/manual/add",{date:S.date,entry});
+      if(!r.ok) throw new Error(r.error||"Could not add");
+      close(); toast(`${kind} added`+pushNote(r.push),"check"); await refreshAll(); }) };
+  dlg.showModal(); $("#awText").focus();
+}
+$("#addDlg").addEventListener("click",e=>{ if(e.target.id==="addDlg") e.target.close(); });
+
+function renderEditor(){
+  const items=structuredClone((S.day.summary?.items||[]).filter(i=>!i.manual));
+  if(!items.length) items.push({module:"",action:"",details:"",status:"Completed"});
+  const mods2=[...mods(),"[Unspecified Activity]"];
+  const draw=()=>{ $("#pane").innerHTML = `<div class="grid2"><div>
+      <div class="toolbar"><button class="btn primary" id="saveBtn">${ic("save","sm")}Save</button><button class="btn" id="addBtn">${ic("plus","sm")}Add item</button><button class="btn ghost" id="cancelBtn">Cancel</button>
+        <span class="note">${ic("info","sm")}My edits are kept — the shutdown run never rewrites them. Meetings & visits I added stay as they are.</span></div>
+      <datalist id="mods">${mods2.map(m=>`<option value="${esc(m)}">`).join("")}</datalist>
+      ${items.map((it,i)=>`<div class="erow" data-i="${i}">
+        <input list="mods" data-k="module" value="${esc(it.module)}" placeholder="Project" aria-label="Project">
+        <input data-k="action" value="${esc(it.action)}" placeholder="Short title" aria-label="Title">
+        <select data-k="status" aria-label="Status">${[...new Set(["Completed","In Progress",it.status||"Completed"])].map(s=>`<option ${s===it.status?"selected":""}>${esc(s)}</option>`).join("")}</select>
+        <button class="btn icon" data-del="${i}" data-tip="Remove" aria-label="Remove item">${ic("x","sm")}</button>
+        <textarea data-k="details" placeholder="Polished statement, e.g. Refactored the patient registration UI component and verified the print layout." aria-label="Statement">${esc(it.details)}</textarea></div>`).join("")}
+    </div><aside class="card sheet"><h4>${ic("sheet","sm")}Overall summary · preview</h4><div class="where">Updates as I type · Save also updates the sheet</div><pre class="cell" id="pv"></pre></aside></div>`;
+    const pv=()=>$("#pv").textContent=sheetText(items.filter(i=>i.details||i.action))||"—"; pv();
+    const grow=t=>{t.style.height="auto";t.style.height=t.scrollHeight+4+"px"};
+    $$(".erow textarea").forEach(grow);
+    $$(".erow [data-k]").forEach(el=>el.oninput=el.onchange=()=>{items[+el.closest(".erow").dataset.i][el.dataset.k]=el.value;if(el.tagName==="TEXTAREA")grow(el);pv()});
+    $$("[data-del]").forEach(b=>b.onclick=()=>{items.splice(+b.dataset.del,1);draw()});
+    $("#addBtn").onclick=()=>{items.push({module:"",action:"",details:"",status:"Completed"});draw()};
+    $("#cancelBtn").onclick=()=>{S.edit=false;renderSummary()};
+    $("#saveBtn").onclick=e=>busy(e.currentTarget," Saving…",async()=>{ const r=await api("/api/save",{date:S.date,items,approved:true}); S.edit=false; toast("Saved"+pushNote(r.push),"save"); await refreshAll(); });
+  }; draw();
+}
+
+/* Activity timeline — grouped by domain */
+function renderTimeline(){
+  const raw=S.day.raw;
+  if(!raw?.events?.length) return $("#pane").innerHTML=`<div class="card emptybox">${ic("activity")}<h3>No activity for this day</h3>${raw?"Nothing of mine was recorded on this PC.":"Use “Collect again” on the My day tab."}</div>`;
+  const srcs=[...new Set(raw.events.map(e=>e.src))];
+  const draw=()=>{
+    const q=S.q.toLowerCase(), evs=raw.events.filter(e=>!S.srcOff.has(e.src)&&(!q||e.text.toLowerCase().includes(q)));
+    const g={}; evs.forEach(e=>(g[domainOf(e.module==="[Unspecified]"?"":e.module)]??=[]).push(e));
+    $("#tlBody").innerHTML = Object.keys(DOMAINS).filter(k=>g[k]).map(k=>{const d=DOMAINS[k], list=g[k];
+      return `<section class="card dcard ${S.open["t-"+k]?"":"closed"}" data-k="t-${k}"><button class="dhead">${dicon(d)}
+        <span><h3>${d.name}</h3><span class="cnt">${list.length} events · ${esc(list[0].time)}–${esc(list.at(-1).time)}</span></span><span class="chev">${ic("down")}</span></button>
+        <div class="dbody">${list.map(e=>`<div class="ev"><span class="tm">${esc(e.time)}</span><span class="sx" data-tip="${esc((SRC[e.src]||[e.src])[0])}">${ic((SRC[e.src]||[0,"info"])[1],"sm")}</span><span class="tx">${esc(e.text)}</span></div>`).join("")}</div></section>`}).join("")
+      || `<div class="card emptybox">No matching activity.</div>`;
+    bindCollapse();
+  };
+  $("#pane").innerHTML = `<div class="filters">${srcs.map(s=>`<button class="fchip ${S.srcOff.has(s)?"":"on"}" data-s="${s}">${ic((SRC[s]||[0,"info"])[1],"sm")}${esc((SRC[s]||[s])[0])}</button>`).join("")}
+    <span class="sp"></span><input class="field" id="q" placeholder="Search my activity…" value="${esc(S.q)}" style="max-width:260px" aria-label="Search"></div><div id="tlBody"></div>`;
+  $$(".fchip").forEach(c=>c.onclick=()=>{const s=c.dataset.s;S.srcOff.has(s)?S.srcOff.delete(s):S.srcOff.add(s);c.classList.toggle("on");draw()});
+  $("#q").oninput=e=>{S.q=e.target.value;draw()}; draw();
+}
+
+/* Insights */
+function renderInsights(){
+  const raw=S.day.raw, wk=S.over.days;
+  const tm=t=>+t.slice(0,2)*60+ +t.slice(3), blocks=(raw?.active_blocks||[]).map(b=>b.split("-").map(tm));
+  const cnt=f=>{const c={};(raw?.events||[]).forEach(e=>{const k=f(e);c[k]=(c[k]||0)+1});return Object.entries(c).sort((a,b)=>b[1]-a[1])};
+  const hbars=(rows,color,label,unit="events")=>{const mx=Math.max(1,...rows.map(r=>r[1]));return rows.map(([k,n])=>`<div class="hbar" data-tip="${esc(label(k))}: ${n} ${unit}"><span class="lbl"><span class="dot" style="background:${color(k)}"></span>${esc(label(k))}</span><div class="trk"><div class="fil" style="width:${n/mx*100}%;background:${color(k)}"></div></div><span class="val">${n}</span></div>`).join("")};
+  const wmax=Math.max(60,...wk.map(d=>d.active_min)), t2=m=>`${pad(Math.floor(m/60))}:${pad(m%60)}`;
+  $("#pane").innerHTML = `<div class="ins">
+    <div class="card" style="grid-column:1/-1"><h4>When I worked</h4><p class="cap">${raw?`${blocks.length} work block(s) on ${esc(fmtLong(S.date))} · gaps over 30 min are not counted`:"Nothing collected for this day"}</p>
+      <div class="timebar">${blocks.map(([s,e])=>`<span data-tip="${t2(s)} – ${t2(e)}" style="left:${s/1440*100}%;width:${Math.max(e-s,4)/1440*100}%"></span>`).join("")}</div>
+      <div class="ticks"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div></div>
+    <div class="card"><h4>Active time this week</h4><p class="cap">Hours per day · selected day in green</p>
+      <div class="vbars">${wk.map(d=>`<div class="vbar ${d.date===S.date?"sel":""}" data-tip="${esc(fmtLong(d.date))}: ${hm(d.active_min)} active · ${d.items} item(s)"><span class="v">${d.active_min?hm(d.active_min):""}</span><div class="b" style="height:${d.active_min/wmax*80}%"></div><span class="x">${new Date(d.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short"})}</span></div>`).join("")}</div></div>
+    <div class="card"><h4>Where my time went</h4><p class="cap">Activity on this day, by domain</p>
+      ${raw?.events?.length?hbars(cnt(e=>domainOf(e.module==="[Unspecified]"?"":e.module)),k=>DOMAINS[k].color,k=>DOMAINS[k].name):`<div class="emptybox" style="padding:20px">No activity</div>`}</div>
+    <div class="card"><h4>Captured from</h4><p class="cap">Which sources recorded this day</p>
+      ${raw?.events?.length?hbars(cnt(e=>e.src),()=>"var(--g-other)",k=>(SRC[k]||[k])[0]):`<div class="emptybox" style="padding:20px">No activity</div>`}</div>
+    <div class="card"><h4>Domains this week</h4><p class="cap">How many days each domain appears in my log</p>
+      ${S.over.domain_days.length?hbars(S.over.domain_days,k=>DOMAINS[domainOf(k)].color,k=>k,"day(s)"):`<div class="emptybox" style="padding:20px">No entries this week</div>`}</div>
+  </div>`;
+}
+
+/* Settings & help */
+function renderSettings(){
+  const st=S.status, a=st.automation||{}, o=st.owner;
+  const yes=t=>`<span class="ok">${ic("check","sm")} ${t}</span>`, no=t=>`<span class="warn">${ic("alert","sm")} ${t}</span>`;
+  $("#pane").innerHTML = `<div class="set">
+    <div class="card" style="grid-column:1/-1"><h4>${ic("zap","sm")}How my work log works</h4>
+      <div class="flow"><span class="node">${ic("dl","sm")}1 · Collect my activity</span><span class="arr">${ic("right")}</span><span class="node">${ic("spark","sm")}2 · AI writes it up</span><span class="arr">${ic("right")}</span><span class="node">${ic("upload","sm")}3 · Sync to my sheet</span><span class="arr">${ic("right")}</span><span class="node">${ic("mail","sm")}4 · Email the report</span></div>
+      <p style="color:var(--text-2);margin:12px 0 0">When I <b>shut down the PC</b> it gathers only <b>my own</b> activity — browser history, my commits and git actions, files I opened or changed, VS Code, OpenCode and Claude Code. Claude turns it into polished engineering statements and writes them into <b>${esc(st.sheet_name)}</b>. After <b>${esc(a.email_after)}</b> it also emails the day's report (an earlier restart only saves to the sheet). If a shutdown is cut short, the next start-up finishes it; if the PC stays on, it runs at ${esc(a.fallback_at||"23:50")}. Anything I edit by hand is never overwritten, and raw logs never leave this PC.</p></div>
+    <div class="card"><h4>${ic("users","sm")}Profile</h4><dl class="kv">
+      <dt>Name</dt><dd>${esc(o.name)}</dd><dt>Role</dt><dd>${esc(o.role)}</dd><dt>Organization</dt><dd>${esc(o.organization)}</dd>
+      <dt>Settings</dt><dd><code>config.yaml</code> in the project folder</dd></dl></div>
+    <div class="card"><h4>${ic("activity","sm")}Automation status</h4><dl class="kv">
+      <dt>Save at shutdown</dt><dd>${st.shutdown_hook?.active?yes("installed"):no("not installed yet — see below")}</dd>
+      <dt>Safety nets</dt><dd>${st.schedule_installed?yes(`catch-up at start-up · ${esc(a.fallback_at||"23:50")} if still on`):no("not installed")}</dd>
+      <dt>AI writing</dt><dd>${st.claude_available?yes(`Claude (${esc(a.ai_model)})`):no("Claude CLI not found")}</dd>
+      <dt>Sheet sync</dt><dd>${st.sheet_sync?yes("connected"):no("not set up yet")}</dd>
+      <dt>Last run</dt><dd>${st.last_run?esc(Object.entries(st.last_run.steps).map(([k,v])=>`${k}: ${v}`).join(" · ")):"none yet"}</dd></dl></div>
+    <div class="card" style="grid-column:1/-1"><h4>${ic("zap","sm")}${st.shutdown_hook?.active?"Save at shutdown is installed":"Save my day at shutdown (one time)"}</h4>
+      ${st.shutdown_hook?.active?`<p style="color:var(--text-2);margin:0">Turning the PC off saves my day to the sheet${st.mail?.enabled?" and emails it":""}. To remove everything, run the installer again with <code>${st.platform==="windows"?"-Uninstall":"--uninstall"}</code>.</p>`:
+      `<p style="color:var(--text-2);margin:0 0 10px">${st.platform==="windows"?"Run the installer once (it asks for administrator permission):":"Open a terminal and run the installer once (it asks for my password):"}</p>
+      <div class="toolbar"><code style="flex:1;min-width:240px;padding:8px 10px;word-break:break-all" id="hookCmd">${esc(st.install_command)}</code>
+        <button class="btn" id="copyHook">${ic("copy","sm")}Copy</button></div>
+      <p style="color:var(--muted);font-size:12.5px;margin:4px 0 0">${ic("info","sm")} ${st.platform==="windows"?"Adds a sign-out script, so signing out or shutting down saves my day first.":"A small system service: when the PC shuts down it gets up to 2½ minutes, before the network goes off."}</p>`}</div>
+    <div class="card" style="grid-column:1/-1"><h4>${ic("mail","sm")}Daily email</h4>
+      <p style="color:var(--text-2);margin:0 0 12px">When I shut down after <b>${esc(a.email_after)}</b>, my day's work report — every task by project, today's numbers and the last 7 days — is emailed from my Gmail through the sheet's script.</p>
+      <div class="toolbar"><label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="mailOn" ${st.mail?.enabled?"checked":""}> Send every day</label>
+        <input class="field" id="mailTo" value="${esc((st.mail?.to||[]).join(", "))}" placeholder="me@example.com, boss@example.com" style="flex:1;min-width:240px" aria-label="Send to (comma separated)">
+        <button class="btn primary" id="mailSave">${ic("save","sm")}Save</button>
+        <button class="btn" id="mailTest">${ic("mail","sm")}Send test</button></div>
+      <div style="color:var(--muted);font-size:12.5px;margin:10px 0 0" id="scriptVer">${ic("refresh","sm spin")} Checking the script in my sheet…</div></div>
+    <details class="card setupbox" style="grid-column:1/-1" ${st.sheet_sync?"":"open"}><summary><h4>${ic("sheet","sm")}${st.sheet_sync?`<span class="ok">Sheet sync connected</span>`:"Set up sheet sync (one time, about 2 minutes)"}</h4>${st.sheet_sync?`<span class="hint">reconnect</span>`:""}</summary>
+      <ol class="steps" style="margin-top:12px">
+        <li>Open ${st.sheet_url?`<a href="${esc(st.sheet_url)}" target="_blank" rel="noopener"><b>${esc(st.sheet_name)}</b></a>`:`a new Google Sheet (<a href="https://sheets.new" target="_blank" rel="noopener"><b>sheets.new</b></a>) — the script adds the headers itself`} → menu <b>Extensions → Apps Script</b>.</li>
+        <li>Delete everything in the editor, paste my script <button class="btn" id="copyScript">${ic("copy","sm")}Copy script</button> and press <b>Save</b>.</li>
+        <li><b>Deploy → New deployment</b> → gear icon → <b>Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b> → <b>Deploy</b> → authorize with your Google account.</li>
+        <li>Copy the <b>Web app URL</b> (<code>https://script.google.com/macros/s/…/exec</code>) and paste it here:</li>
+      </ol>
+      <div class="toolbar" style="margin-top:12px"><input class="field" id="hookUrl" placeholder="https://script.google.com/macros/s/…/exec" style="flex:1;min-width:260px" aria-label="Web app URL">
+        <button class="btn primary" id="saveHook">${ic("check","sm")}Connect</button></div>
+      <p style="color:var(--muted);font-size:12.5px;margin:6px 0 0">${ic("info","sm")} The script accepts requests only with my private key and never overwrites text I typed into the sheet myself.</p></details>
+  </div>`;
+  const ch=$("#copyHook"); if(ch) ch.onclick=async()=>{ try{await navigator.clipboard.writeText($("#hookCmd").textContent);toast("Copied — paste it into a terminal","copy")}catch{toast("The browser blocked copying","alert")} };
+  const saveMail=async()=>{ const r=await api("/api/mail-settings",{enabled:$("#mailOn").checked,to:$("#mailTo").value});
+    if(!r.ok) throw new Error(r.error); S.status.mail=r.mail; renderAuto(); return r.mail };
+  $("#mailSave").onclick=e=>busy(e.currentTarget," Saving…",async()=>{ const m=await saveMail(); toast(m.enabled?`Daily email on → ${m.to.join(", ")||"no recipient yet"}`:"Daily email turned off","mail") });
+  $("#mailTest").onclick=e=>busy(e.currentTarget," Sending…",async()=>{ await saveMail(); const r=await api("/api/email",{date:S.date,test:true});
+    toast(r.ok?`Test email sent to ${(r.to||[]).join(", ")} — check the inbox`:`Not sent: ${r.error||"unknown error"}`, r.ok?"mail":"alert") });
+  const checkScript=()=>{ const el=$("#scriptVer"); if(!el) return;
+    el.innerHTML=`${ic("refresh","sm spin")} Checking the script in my sheet…`;
+    api("/api/script-version",{}).then(r=>{ if(!$("#scriptVer")) return;
+      if(r.version && r.version!==st.script_version){ st.script_version=r.version; }
+      el.innerHTML = !r.ok ? `<span class="warn">${ic("alert","sm")} Could not reach the script in my sheet.</span> <button class="btn" id="recheck">${ic("refresh","sm")}Check again</button>`
+        : r.version>=3 ? `<span class="ok">${ic("check","sm")} Up to date — email and the “Total Working Hours” column are ready.</span>`
+        : `<span class="warn" style="display:block;margin-bottom:6px">${ic("alert","sm")} ${r.version>=2?"Email works. To fill column C “Total Working Hours”, update the script in my sheet once:":"Email is not ready: my sheet still runs the old script. Update it once:"}</span>
+           <ol class="steps" style="font-size:13px;margin:0 0 10px">
+             <li><button class="btn" id="copyScript2">${ic("copy","sm")}Copy script</button></li>
+             <li>In the sheet: <b>Extensions → Apps Script</b> → select all, paste over the old code → <b>Save</b>.</li>
+             <li><b>Deploy → Manage deployments</b> → pencil icon → Version: <b>New version</b> → <b>Deploy</b>.</li>
+             <li>Allow any new permission it asks for, then press <b>Check again</b>.</li>
+           </ol>
+           <button class="btn primary" id="recheck">${ic("refresh","sm")}Check again</button>`;
+      const rc=$("#recheck"); if(rc) rc.onclick=checkScript;
+      const c2=$("#copyScript2"); if(c2) c2.onclick=()=>$("#copyScript").click();
+    }).catch(()=>{});
+  };
+  if(st.sheet_sync) checkScript();
+  else $("#scriptVer").innerHTML=`<span class="warn">${ic("alert","sm")} Set up sheet sync below first — the email is sent by the same script.</span>`;
+  $("#copyScript").onclick=async()=>{ const {code}=await api("/api/apps-script"); try{await navigator.clipboard.writeText(code);toast("Script copied — paste it into Apps Script","copy")}catch{prompt("Copy this script:",code)} };
+  $("#saveHook").onclick=e=>busy(e.currentTarget," Testing…",async()=>{ const r=await api("/api/webhook",{url:$("#hookUrl").value});
+    toast(r.ok?"Connected — my sheet now updates automatically":"Could not connect: "+(r.error||r.log), r.ok?"check":"alert"); await refreshAll(); });
+}
+
+/* data flow */
+async function openDay(d){ S.date=d; $("#pick").value=d; history.replaceState(null,"","#"+d); S.edit=false; await refreshAll() }
+async function refreshAll(){
+  const t=today(), end = S.date>=addDays(t,-3) ? t : addDays(S.date,3);
+  const [st, day, over] = await Promise.all([api("/api/status"), api("/api/day?date="+S.date), api("/api/overview?date="+end)]);
+  S.status=st; S.day=day; S.over=over; buildGroups(st.groups);
+  renderHeader(); renderAuto(); renderWeek(); renderHero(); renderTabs();
+}
+$("#prev").onclick=()=>openDay(addDays(S.date,-1));
+$("#next").onclick=()=>openDay(addDays(S.date,1));
+$("#todayBtn").onclick=()=>openDay(today());
+$("#pick").onchange=e=>e.target.value&&openDay(e.target.value);
+$("#calBtn").onclick=()=>{ const p=$("#pick"); try{ p.showPicker() }catch{ p.style.pointerEvents="auto"; p.focus(); p.click() } };
+openDay(/^\d{4}-\d{2}-\d{2}$/.test(location.hash.slice(1))?location.hash.slice(1):today());
+</script>
+</body>
+</html>
