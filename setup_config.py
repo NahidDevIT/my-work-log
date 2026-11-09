@@ -64,8 +64,8 @@ def repos_in(root):
     out = []
     for g in list(root.glob("*/.git")) + list(root.glob("*/*/.git")):
         name = g.parent.name
-        if name.startswith(".") or name == HERE.name:
-            continue
+        if name.startswith(".") or name == HERE.name or (g.parent / "setup_config.py").exists():
+            continue                                      # skip My Work Log itself (any copy)
         out.append(name)
     return sorted(set(out), key=str.lower)[:40]
 

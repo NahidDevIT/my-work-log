@@ -159,8 +159,12 @@ def shutdown_hook_status():
         return {"enabled": ok, "active": ok}
     if IS_MAC:
         return {"enabled": False, "active": False}
+    try:                                           # the service must point at THIS folder
+        mine = str(HERE / "session.py") in Path("/etc/systemd/system/my-work-log-shutdown.service").read_text()
+    except OSError:
+        mine = False
     q = lambda *a: (_run("systemctl", *a, "my-work-log-shutdown.service") or type("r", (), {"stdout": ""})).stdout.strip()
-    return {"enabled": q("is-enabled") == "enabled", "active": q("is-active") == "active"}
+    return {"enabled": mine and q("is-enabled") == "enabled", "active": mine and q("is-active") == "active"}
 
 
 def safety_nets_status():
@@ -169,8 +173,8 @@ def safety_nets_status():
         r = _run("schtasks", "/Query", "/TN", "MyWorkLog Fallback")
         return bool(r and r.returncode == 0)
     r = _run("crontab", "-l")
-    cron = r.stdout if r else ""
-    return all(re.search(r"session\.py\W+" + m, cron) for m in ("boot", "fallback"))
+    lines = [l for l in (r.stdout if r else "").splitlines() if str(HERE / "session.py") in l]
+    return all(any(re.search(r"session\.py\W+" + m, l) for l in lines) for m in ("boot", "fallback"))
 
 
 def install_command():

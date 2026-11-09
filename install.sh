@@ -58,10 +58,6 @@ fi
 for b in google-chrome chromium microsoft-edge BraveSoftware/Brave-Browser; do [ -d "$HOME/.config/$b" ] && ok "browser: $b"; done
 { [ -d "$HOME/.mozilla/firefox" ] || [ -d "$HOME/snap/firefox" ]; } && ok "browser: firefox"
 [ -d "$HOME/.config/Code" ] && ok "VS Code"
-if ! grep -q HISTTIMEFORMAT "$HOME/.bashrc" 2>/dev/null; then
-  printf '\n# My Work Log: keep a time on every terminal command\nexport HISTTIMEFORMAT="%%F %%T "\n' >> "$HOME/.bashrc"
-  ok "terminal history timestamps turned on (~/.bashrc)"
-fi
 
 # 3. Settings ─────────────────────────────────────────────────
 step "3/6  Your settings"
@@ -71,6 +67,10 @@ if [ -n "$WORKLOG_SKIP_SYSTEM" ]; then ok "WORKLOG_SKIP_SYSTEM set — not touch
 
 # 4. Start-up + late-night safety nets (cron) ─────────────────
 step "4/6  Automation"
+if ! grep -q HISTTIMEFORMAT "$HOME/.bashrc" 2>/dev/null; then
+  printf '\n# My Work Log: keep a time on every terminal command\nexport HISTTIMEFORMAT="%%F %%T "\n' >> "$HOME/.bashrc"
+  ok "terminal history timestamps turned on (~/.bashrc)"
+fi
 if command -v crontab >/dev/null; then
   ENVP='PATH=$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin'
   { crontab -l 2>/dev/null | grep -vF "$DIR/" | grep -v "^# My Work Log" || true
