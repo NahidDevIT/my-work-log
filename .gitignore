@@ -21,3 +21,6 @@ __pycache__/
 Thumbs.db
 remote.json
 .claude/
+open_app.sh
+open_app.cmd
+ui/icons/app.ico

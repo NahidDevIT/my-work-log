@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My Work Log</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-180.png">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Work Log">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E">
 <style>
 /* ───────── tokens: dark is the default ───────── */
@@ -516,7 +522,8 @@ async function watchPC(){
   pinging=true;
   try{
     if(await pcReachable()){ pingFails=0; return }
-    if(++pingFails>=2){ const u=ls.get(FALLBACK); if(u){ toast("This PC can't be reached — opening my saved work","phone"); setTimeout(()=>location.replace(u),600) } }
+    if(++pingFails>=2){ const app=ls.get("wl_fallback_app"), u=app?app+"#back":ls.get(FALLBACK);
+      if(u){ toast("This PC can't be reached — opening my saved work","phone"); setTimeout(()=>location.replace(u),600) } }
   } finally { pinging=false }
 }
 setInterval(watchPC, 5000);
@@ -784,18 +791,26 @@ function phoneCard(st){
   if(!r.viewer_local) return box(`<div class="toolbar" style="margin:0"><span class="ok">${ic("check","sm")} Signed in from this device</span><span class="sp"></span>
       <button class="btn" id="signOut">${ic("logout","sm")}Sign out</button></div>
     <p style="color:var(--muted);font-size:12.5px;margin:6px 0 0">The sheet key, sheet link, email recipients and phone settings can only be changed on the PC itself.</p>`);
-  const link = st.view_url || (r.urls||[])[0] || "";
+  const appLink = st.view_url && (st.script_version||0)>=6 && st.phone_app_url ? st.phone_app_url+"#link="+encodeURIComponent(st.view_url) : "";
+  const link = appLink || st.view_url || (r.urls||[])[0] || "";
   // ── 1. the one link
   let top;
-  if(st.view_url){
+  if(appLink){
+    top=`<div class="where" style="margin:0 0 8px"><b style="color:var(--text)">Phone app</b> — scan the QR code with my phone, then tap <b>Install</b> / <b>Add to Home screen</b>.</div>
+      <div class="toolbar" style="margin:0"><button class="btn primary" id="pCopy">${ic("copy","sm")}Copy app link</button>
+        <a class="btn" href="${esc(appLink)}" target="_blank" rel="noopener">${ic("ext","sm")}Open</a>
+        <button class="btn ghost" id="viewNew" data-tip="The old link stops working (the phone app must be set up again)">New link</button></div>
+      <p style="color:var(--text-2);font-size:13px;margin:10px 0 0"><b class="ok">PC on + same Wi-Fi</b> → the app opens my live dashboard by itself · <b>PC off / mobile data</b> → my saved days, tasks and hours.</p>
+      <p style="color:var(--muted);font-size:12.5px;margin:6px 0 0">${ic("info","sm")} My private link stays on the phone — it is never sent to the app's website.</p>`;
+  } else if(st.view_url){
     top=`<div class="where" style="margin:0 0 6px">My phone link — keep it private:</div>
       <div class="toolbar" style="margin:0 0 8px"><code style="flex:1;min-width:200px;padding:9px 11px;word-break:break-all;font-size:12.5px">${esc(st.view_url)}</code></div>
       <div class="toolbar" style="margin:0"><button class="btn primary" id="pCopy">${ic("copy","sm")}Copy link</button>
         <a class="btn" href="${esc(st.view_url)}" target="_blank" rel="noopener">${ic("ext","sm")}Open</a>
         <button class="btn ghost" id="viewNew" data-tip="The old link stops working">New link</button></div>
-      ${(st.script_version||0)>=5
-        ? `<p style="color:var(--text-2);font-size:13px;margin:10px 0 0"><b class="ok">PC on</b> → opens my live dashboard (on the same Wi-Fi it opens by itself) · <b>PC off</b> → my saved days, tasks and hours from the sheet.</p>`
-        : `<div class="warn" style="margin:12px 0 0">${ic("alert","sm")} The link works and shows my saved work. Update the script once more so the <b>same link</b> also opens my live dashboard when the PC is on:</div>
+      ${(st.script_version||0)>=6
+        ? `<p style="color:var(--text-2);font-size:13px;margin:10px 0 0"><b class="ok">PC on</b> → opens my live dashboard · <b>PC off</b> → my saved days, tasks and hours from the sheet.</p>`
+        : `<div class="warn" style="margin:12px 0 0">${ic("alert","sm")} The link works. Update the script once more to get the <b>phone app</b> (it opens my live dashboard by itself on the same Wi-Fi):</div>
         <ol class="steps" style="font-size:13px;margin:6px 0 10px"><li><button class="btn" id="vCopyScript2">${ic("copy","sm")}Copy script</button></li>
         <li>In the sheet: <b>Extensions → Apps Script</b> → select all, paste over the old code → <b>Save</b>.</li>
         <li><b>Deploy → Manage deployments</b> → pencil icon → Version: <b>New version</b> → <b>Deploy</b> (not "New deployment").</li>
@@ -953,6 +968,8 @@ $("#next").onclick=()=>openDay(addDays(S.date,1));
 $("#todayBtn").onclick=()=>openDay(today());
 $("#pick").onchange=e=>e.target.value&&openDay(e.target.value);
 $("#calBtn").onclick=()=>{ const p=$("#pick"); try{ p.showPicker() }catch{ p.style.pointerEvents="auto"; p.focus(); p.click() } };
+if(location.hash.startsWith("#app=")){ try{ const a=decodeURIComponent(location.hash.slice(5)); if(/^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(a)) ls.set("wl_fallback_app",a) }catch{} }
+if("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("/sw.js").catch(()=>{});   // installable desktop app
 openDay(/^\d{4}-\d{2}-\d{2}$/.test(location.hash.slice(1))?location.hash.slice(1):today());
 </script>
 </body>

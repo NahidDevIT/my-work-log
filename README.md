@@ -81,6 +81,22 @@ overwrites text you typed into the sheet yourself. The email is sent from your o
   * **Edit**, **Save my day now**, profile photo, light / dark theme
 * **Column C** of the sheet: `Total work hours: 7h 33m · Start: 8:58 AM · End: 4:32 PM · Extra: 0h 00m`.
 
+## Apps — PC and phone
+
+**PC app.** The installer adds **My Work Log** to the app menu (Linux) / Start menu + Desktop (Windows):
+it starts the dashboard if needed and opens it in its own window. Run `python3 desktop_app.py` to add it
+later, `--remove` to take it away. Chrome / Edge also offer **Install My Work Log** on http://127.0.0.1:8765.
+
+**Phone app.** Settings & help → **Open on my phone** → scan the QR code → **Install** / **Add to Home screen**.
+The app (https://nahiddevit.github.io/my-work-log/, source in [`phone_app/`](phone_app)) keeps your private
+link only on the phone (it arrives in the `#…` part of the address, which browsers never send to a website):
+
+* **PC on + same Wi-Fi** → it opens your live dashboard by itself.
+* **Mobile data / PC off** → your saved work from the Google Sheet; an open live dashboard comes back to
+  the app within ~10 s when the PC can no longer be reached.
+
+Needs the sheet script **version 6**.
+
 ## Open on my phone — one link
 
 Dashboard → **Settings & help** → **Open on my phone** → **Create my phone link**. You get **one private

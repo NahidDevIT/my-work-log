@@ -18,6 +18,7 @@ if [ "$1" = "--uninstall" ]; then
   (crontab -l 2>/dev/null | grep -vF "$DIR/" | grep -v "^# My Work Log" ) | crontab - && ok "cron entries removed"
   if [ -f /etc/systemd/system/my-work-log-shutdown.service ]; then sudo bash "$DIR/install_shutdown_hook.sh" --remove; fi
   pkill -f "$DIR/server.py" 2>/dev/null || pkill -f "python.* server.py" 2>/dev/null || true
+  "$(cat "$DIR/.python" 2>/dev/null || echo python3)" "$DIR/desktop_app.py" --remove || true
   ok "done — your data (raw/, output/, config.yaml …) is still in $DIR"
   exit 0
 fi
@@ -92,8 +93,9 @@ else
   warn "systemd not found — your day is saved by the start-up catch-up and the 23:50 run instead"
 fi
 
-# 6. Dashboard ────────────────────────────────────────────────
+# 6. Dashboard + desktop app ──────────────────────────────────
 step "6/6  Dashboard"
+"$PY" "$DIR/desktop_app.py" || warn "could not add the app icon — open http://127.0.0.1:8765 instead"
 chmod +x "$DIR"/*.sh
 "$DIR/start.sh"
 echo

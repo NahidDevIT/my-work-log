@@ -16,7 +16,7 @@
  */
 const TOKEN = '__TOKEN__';
 const SHEET_NAME = 'Sheet1';
-const VERSION = 5;          // 2 = daily email, 3 = column C, 4 = phone view, 5 = one phone link (live when the PC is on)
+const VERSION = 6;          // 2 = daily email, 3 = column C, 4 = phone view, 5 = one phone link, 6 = phone app
 
 function sheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -141,9 +141,11 @@ function doGet(e) {
     today: Utilities.formatDate(new Date(), tz, 'EEEE, MMMM d, yyyy'),
     todayIso: Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'),
     generated: Utilities.formatDate(new Date(), tz, 'EEE d MMM, h:mm a'),
-    pc: pcState_(p, tz)
+    pc: pcState_(p, tz),
+    inApp: String((e && e.parameter && e.parameter.app) || '') === '1'
   });
   return HtmlService.createHtmlOutput(html).setTitle('My Work Log')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)          // the phone app shows this page inside itself
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -227,22 +229,26 @@ function renderView(rows, o) {
   const live = pc.online && pc.urls && pc.urls.length ? pc.urls[0] : '';
   const js = function (v) { return JSON.stringify(String(v)).replace(/</g, '\\u003c'); };
   let banner;
+  // Tell the phone app (if this page is shown inside it) whether the PC is on and on the same Wi-Fi.
+  const status = '<script>(function(){var ip=' + js(pc.ip || '') + ',u=' + js(live) + ',app=' + (o.inApp ? 'true' : 'false') + ',tried=false;' +
+    'function post(same){try{window.top.postMessage({mwl:1,online:' + (pc.online ? 'true' : 'false') + ',live:u,same:!!same},"*")}catch(e){}}' +
+    'function show(same){var m=document.getElementById("pcmsg"),g=document.getElementById("go");if(!m||!g)return;' +
+    'm.textContent=same?(app?"You are on the same Wi-Fi — opening the live dashboard…":"You are on the same Wi-Fi — tap to open the live dashboard"):"Open the live dashboard — works on the same Wi-Fi";' +
+    'g.className=same?"go pulse":"go"}' +
+    'function check(){if(!ip||!u||!window.fetch){post(false);return}' +
+    'fetch("https://api.ipify.org?format=json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){' +
+    'var same=!!(j&&j.ip===ip);show(same);post(same);' +
+    // outside the app most browsers only allow leaving this Google page after a tap; try once anyway
+    'if(same&&!app&&!tried){tried=true;try{window.top.location.href=u}catch(e){}}}).catch(function(){post(false)})}' +
+    'check();setInterval(check,20000);window.addEventListener("online",check)})();</script>';
   if (live) {
     banner = '<div class="pc on"><div><b>● My PC is on</b><span id="pcmsg">Open the live dashboard — works on the same Wi-Fi</span></div>' +
-      '<a class="go" id="go" href="' + esc(live) + '" target="_top">Open live dashboard</a></div>' +
-      '<script>(function(){var ip=' + js(pc.ip) + ',u=' + js(live) + ',tried=false;if(!ip||!window.fetch)return;' +
-      'function check(){fetch("https://api.ipify.org?format=json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(j){' +
-      'var same=j&&j.ip===ip,m=document.getElementById("pcmsg"),g=document.getElementById("go");' +
-      'm.textContent=same?"You are on the same Wi-Fi — tap to open the live dashboard":"Open the live dashboard — works on the same Wi-Fi";' +
-      'g.className=same?"go pulse":"go";' +
-      // most browsers only allow leaving this Google page after a tap; try once anyway for those that allow it
-      'if(same&&!tried){tried=true;try{window.top.location.href=u}catch(e){}}}).catch(function(){})}' +
-      'check();setInterval(check,20000);window.addEventListener("online",check)})();</script>';
+      '<a class="go" id="go" href="' + esc(live) + '" target="_top">Open live dashboard</a></div>' + status;
   } else if (pc.online) {
     banner = '<div class="pc on"><div><b>● My PC is on</b><span>Turn on “Open on my phone” in the dashboard to open it live from here</span></div></div>';
   } else {
     banner = '<div class="pc off"><div><b>○ My PC is off</b><span>Showing my saved work from the Google Sheet' +
-      (pc.lastSeen ? ' · PC last seen ' + esc(pc.lastSeen) : '') + '</span></div></div>';
+      (pc.lastSeen ? ' · PC last seen ' + esc(pc.lastSeen) : '') + '</span></div></div>' + status;
   }
 
   return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +

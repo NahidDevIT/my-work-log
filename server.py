@@ -531,6 +531,14 @@ class H(BaseHTTPRequestHandler):
         q = dict(p.split("=", 1) for p in qs.split("&") if "=" in p)
         if path == "/api/ping":
             return self.send(200, {"ok": True})
+        # app files (nothing private) — also before sign-in, so phones/PCs can install the app
+        if path == "/manifest.webmanifest":
+            return self.send(200, (HERE / "ui" / "manifest.webmanifest").read_bytes(), "application/manifest+json")
+        if path == "/sw.js":
+            return self.send(200, (HERE / "ui" / "sw.js").read_bytes(), "text/javascript",
+                             {"Service-Worker-Allowed": "/"})
+        if re.fullmatch(r"/icons/[\w-]+\.png", path) and (HERE / "ui" / path.lstrip("/")).exists():
+            return self.send(200, (HERE / "ui" / path.lstrip("/")).read_bytes(), "image/png")
         if path == "/login":
             if self.authed():
                 return self.send(302, b"", "text/plain", {"Location": "/"})
@@ -544,7 +552,7 @@ class H(BaseHTTPRequestHandler):
         if path == "/api/status":
             local = self.is_local()
             return self.send(200, {**status(), "remote": remote_status(local), "view_url": view_url() if local else "",
-                                   "phone_link": view_url()})
+                                   "phone_link": view_url(), "phone_app_url": cfg().get("phone_app_url", "")})
         if path == "/api/overview":
             d = self.date_ok(q.get("date"))
             return d and self.send(200, overview(d))
