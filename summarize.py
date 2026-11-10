@@ -62,10 +62,13 @@ Turn it into a short list of polished, professional accomplishment statements fo
 "{sheet}" sheet.
 
 RULES
-- Group related activity into ONE item per meaningful piece of work (typically 3–8 items). Merge fragments.
-- Each item: a domain label, a short title, ONE polished engineering statement (1–2 sentences,
-  past tense, strong verbs: Implemented, Refactored, Deployed, Fixed, Tested, Verified, Investigated,
-  Configured, Logged, Documented, Released, Reviewed).
+- EXACTLY ONE item per project/domain label — never two items with the same label. All of the day's
+  work on one project is merged into that single item (a typical day is 1–5 items in total).
+- Each item: a domain label, a short title naming the main deliverable, and ONE refined statement of
+  2–3 sentences, past tense, strong verbs (Implemented, Deployed, Fixed, Released, Restored, Verified …).
+  Lead with what was delivered or finished, then the most important supporting work (release, deploy,
+  fix, verification). Leave out step-by-step detail (drivers, branches, emulators, migrations, backups)
+  unless it IS the outcome — a manager should understand what really got done in one read.
 - Translate raw file edits/commands into business outcomes. Example:
   raw "modified patient-register.component.ts and checked print layout" →
   "Refactored the patient registration UI component and verified the clinical report print layout."
@@ -83,7 +86,8 @@ RULES
 - Judge the domain from the CONTENT of the activity, not from the digest heading it appears under.
 - Meetings whose topic is unknown → one item with domain "[Unspecified Activity]".
 - If the digest is empty or has nothing work-related, return an empty items list.
-- status: "Completed" unless the digest shows the work is clearly ongoing ("In Progress").
+- status: "Completed" when the item's main deliverable was finished/released/deployed today; "In Progress"
+  when the digest shows it is still being built, debugged or waiting on something.
 - Do not invent facts that are not supported by the digest.
 
 Respond with ONLY a JSON object, no prose, no code fences:
