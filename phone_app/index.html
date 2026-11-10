@@ -31,6 +31,15 @@ button{width:100%;margin-top:10px;font:inherit;font-weight:650;border:0;border-r
 #busy{position:fixed;inset:0;display:grid;place-items:center;background:rgba(15,17,21,.92);z-index:5}
 .spin{width:34px;height:34px;border:3px solid #323a49;border-top-color:var(--ok);border-radius:50%;animation:s 1s linear infinite;margin:0 auto 12px}
 @keyframes s{to{transform:rotate(360deg)}}
+#inst{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:6;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 14px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#inst[hidden]{display:none}
+#inst .row{display:flex;gap:12px;align-items:center}
+#inst img{width:44px;height:44px;border-radius:11px;flex:none}
+#inst b{display:block;font-size:15px}
+#inst small{color:var(--mut);font-size:13px;line-height:1.4;display:block}
+#inst .btns{display:flex;gap:8px;margin-top:10px}
+#inst .btns button{margin:0;padding:10px}
+#inst .btns .ghost{background:transparent;color:var(--mut);border:1px solid var(--line);flex:0 0 34%}
 </style>
 </head>
 <body>
@@ -56,6 +65,11 @@ button{width:100%;margin-top:10px;font:inherit;font-weight:650;border:0;border-r
     <button onclick="location.reload()">Try again</button></div>
 </div>
 
+<div id="inst" hidden>
+  <div class="row"><img src="icons/icon-192.png" alt=""><div><b>Install My Work Log</b><small id="instHow">Add it to the home screen to open it like an app.</small></div></div>
+  <div class="btns"><button id="instGo">Install</button><button class="ghost" id="instLater">Not now</button></div>
+</div>
+
 <div id="busy" hidden><div><div class="spin"></div><div>Opening my live dashboard…</div></div></div>
 
 <script>
@@ -65,7 +79,7 @@ button{width:100%;margin-top:10px;font:inherit;font-weight:650;border:0;border-r
 //  • it shows the sheet page (works anywhere, PC on or off)
 //  • when that page reports "PC on + same Wi-Fi", the app opens the live dashboard by itself;
 //    the dashboard comes back here (#back) when the PC can no longer be reached
-const KEY = "mwl_link", NOAUTO = "mwl_noauto_until", LAST = "mwl_last_auto";
+const KEY = "mwl_link", NOAUTO = "mwl_noauto_until", LAST = "mwl_last_auto", SKIP = "mwl_install_skipped";
 const store = { get: k => { try { return localStorage.getItem(k) } catch { return null } },
                 set: (k, v) => { try { localStorage.setItem(k, v) } catch {} },
                 del: k => { try { localStorage.removeItem(k) } catch {} } };
@@ -92,12 +106,33 @@ $("#save").onclick = () => {
   store.set(KEY, u); $("#setup").hidden = true; start();
 };
 
+// ── install: the live dashboard is plain http (not installable), so while this page is still open in the
+//    browser (not installed yet) it stays here and offers Install first; the auto-switch waits until then.
+const installed = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+let deferred = null;
+function showInstall() {
+  if (installed() || store.get(SKIP)) return;
+  const how = $("#instHow"), go = $("#instGo");
+  if (deferred) { how.textContent = "Add it to the home screen to open it like an app."; go.hidden = false; }
+  else if (ios) { how.innerHTML = "In Safari tap <b style=\"display:inline\">Share ⬆</b> → <b style=\"display:inline\">Add to Home Screen</b>."; go.hidden = true; }
+  else { how.innerHTML = "Open the browser menu <b style=\"display:inline\">⋮</b> → <b style=\"display:inline\">Install app</b> (or <b style=\"display:inline\">Add to Home screen</b>)."; go.hidden = true; }
+  $("#inst").hidden = false;
+}
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; showInstall(); });
+window.addEventListener("appinstalled", () => { $("#inst").hidden = true; deferred = null; });
+$("#instGo").onclick = async () => { if (!deferred) return; deferred.prompt(); const r = await deferred.userChoice.catch(() => ({})); deferred = null;
+  if (r.outcome === "accepted") $("#inst").hidden = true; };
+$("#instLater").onclick = () => { store.set(SKIP, "1"); $("#inst").hidden = true; };
+setTimeout(showInstall, 1500);       // Chrome may never fire beforeinstallprompt (e.g. already offered) → show the menu steps
+
 window.addEventListener("message", e => {
   let host = "";
   try { host = new URL(e.origin).hostname } catch {}
   if (!/(^|\.)googleusercontent\.com$|^script\.google\.com$/.test(host)) return;    // only my sheet page
   const m = e.data;
   if (!m || m.mwl !== 1 || !m.live || !m.same) return;
+  if (!installed() && !store.get(SKIP)) return;                      // install first (see above)
   if (!/^https?:\/\/[\w.\-:\[\]]+\/?$/.test(m.live)) return;
   const now = Date.now();
   if (now < +(store.get(NOAUTO) || 0) || now - +(store.get(LAST) || 0) < 90 * 1000) return;
