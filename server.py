@@ -471,6 +471,30 @@ def heartbeat_loop():
         time.sleep(120)
 
 
+def live_loop():
+    """Today's summary stays live: every automation.live_summary_minutes (default 30) Claude rewrites it from
+    the new activity and the sheet row follows. Skipped when nothing changed, when I wrote the summary myself,
+    and on days I haven't used the PC."""
+    time.sleep(120)
+    while True:
+        mins = 30
+        try:
+            a = cfg().get("automation", {})
+            mins = int(a.get("live_summary_minutes", 30) or 0)
+            mins = max(10, mins) if mins > 0 else 0
+            d = datetime.now().strftime("%Y-%m-%d")
+            if mins and a.get("ai_summary", True) and _collect_lock.acquire(blocking=False):
+                try:
+                    ok, log = run_py("run_day.py", "--date", d, "--live", timeout=900)
+                    with (HERE / "live.log").open("a", encoding="utf-8") as f:
+                        f.write(f"--- {datetime.now():%F %T}\n{log[-1500:]}\n")
+                finally:
+                    _collect_lock.release()
+        except Exception:
+            pass
+        time.sleep((mins or 30) * 60)
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -802,4 +826,5 @@ if __name__ == "__main__":
     print(f"My Work Log → http://127.0.0.1:{PORT}" + ("  (also on my network)" if BIND_HOST == "0.0.0.0" else ""))
     if not os.environ.get("WORKLOG_PORT"):          # test copies on another port never report to the phone link
         threading.Thread(target=heartbeat_loop, daemon=True).start()
+        threading.Thread(target=live_loop, daemon=True).start()
     srv.serve_forever()

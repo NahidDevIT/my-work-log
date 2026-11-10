@@ -27,6 +27,7 @@ automation:
   work_days: "__WORKDAYS__"
   ai_summary: true                # write the day's summary with Claude Code (falls back to a rule-based draft)
   auto_push: true                 # write the summary to the Google Sheet automatically
+  live_summary_minutes: 30        # during the day Claude refreshes today's summary (and sheet row) this often; 0 = off
   ai_model: "sonnet"              # Claude model alias used for the daily summary
 
 # ── Google Sheet (A = Date, B = Work, C = Total Working Hours) ──

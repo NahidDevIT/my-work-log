@@ -33,6 +33,7 @@ def main():
     ap.add_argument("--no-push", action="store_true")
     ap.add_argument("--resummarize", action="store_true", help="replace even a hand-edited summary")
     ap.add_argument("--email", action="store_true", help="also email the day's work report (skipped if already sent)")
+    ap.add_argument("--live", action="store_true", help="during the day: refresh with Claude only, keep the current summary if AI fails")
     ap.add_argument("--keep-summary", action="store_true", help="don't rewrite an existing summary (catch-up runs)")
     a = ap.parse_args()
     d, auto = a.date, CFG.get("automation", {})
@@ -42,6 +43,9 @@ def main():
     r = subprocess.run([sys.executable, str(HERE / "collect.py"), "--date", d], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=HERE)
     run["steps"]["collect"] = (r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else "?"
     log("collect: " + run["steps"]["collect"])
+    if a.live and not (json.loads((HERE / "raw" / f"{d}.json").read_text(encoding="utf-8"))
+                       if (HERE / "raw" / f"{d}.json").exists() else {}).get("events"):
+        return log("live: no activity yet today — nothing to summarize")
 
     # 2. summarize
     sys.path.insert(0, str(HERE))
@@ -57,11 +61,17 @@ def main():
     elif existing and existing.get("items") and existing.get("digest_sha") == sha and not a.resummarize:
         run["steps"]["summary"] = "no new activity since the last summary — kept it"
     elif auto.get("ai_summary", True):
-        out, note = summarize(d, save=True)
-        run["steps"]["summary"] = f"{note} — {len(out['items'])} item(s)"
-        if p.exists():
+        try:
+            out, note = summarize(d, save=True, ai_only=a.live)
+            run["steps"]["summary"] = f"{note} — {len(out['items'])} item(s)"
+        except Exception as e:
+            run["steps"]["summary"] = f"live refresh skipped — AI unavailable ({e})"
+            out = None
+        if out is not None and p.exists():
             o = json.loads(p.read_text(encoding="utf-8"))
             o["digest_sha"] = sha
+            if a.live:
+                o["live_at"] = datetime.now(TZ).isoformat(timespec="seconds")
             p.write_text(json.dumps(o, indent=2, ensure_ascii=False), encoding="utf-8")
     else:
         run["steps"]["summary"] = "AI summary disabled in config"
@@ -106,7 +116,8 @@ def main():
         log("email: " + run["steps"]["email"])
 
     run["finished"] = datetime.now(TZ).isoformat(timespec="seconds")
-    STATUS.write_text(json.dumps(run, indent=2, ensure_ascii=False), encoding="utf-8")
+    if not a.live:                                # live refreshes don't replace the last real run
+        STATUS.write_text(json.dumps(run, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 if __name__ == "__main__":

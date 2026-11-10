@@ -122,12 +122,14 @@ def ai_items(date, formatted):
     return clean
 
 
-def summarize(date, save=False):
+def summarize(date, save=False, ai_only=False):
     sys.path.insert(0, str(HERE))
     from server import build, draft, formatted, read_json
     try:
         items, source, note = ai_items(date, formatted(date)), "ai", "written by Claude"
     except Exception as e:  # fall back to the rule-based draft
+        if ai_only:
+            raise
         items, source, note = draft(date)["items"], "auto", f"AI unavailable ({e}); rule-based draft"
     out = build(date, items)
     out["source"] = source
