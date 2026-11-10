@@ -571,7 +571,8 @@ function renderHero(){
   const doms=[...new Set(items.map(i=>i.module).filter(m=>m&&!m.startsWith("[")))];
   const list=a=>a.length<2?a.join(""):a.slice(0,-1).join(", ")+" and "+a.at(-1);
   const doneMods=[...new Set(items.filter(i=>/^complete/i.test(i.status)).map(i=>i.module).filter(m=>m&&!m.startsWith("[")))];
-  const hl = !items.length ? "Nothing logged yet." : doneMods.length ? `Completed work across ${list(doneMods)}.` : `Work in progress on ${list(doms)}.`;
+  const nev=raw?.events?.length||0;
+  const hl = !items.length ? (nev ? `${nev} activities tracked so far — the summary is written when the PC shuts down, at 11:50 PM, or when I press “Save my day now”.` : "Nothing logged yet.") : doneMods.length ? `Completed work across ${list(doneMods)}.` : `Work in progress on ${list(doms)}.`;
   const synced=dayState(o)==="synced", behind=items.length && !synced && S.status.sheet_sync;
   const upd = synced && o.pushed_at ? `<span class="upd"><span class="ok">${ic("check","sm")}</span>Updated ${new Date(o.pushed_at).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>` : "";
   const isToday=S.date===today();
