@@ -9,6 +9,7 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
+import Meta from 'gi://Meta';
 import Soup from 'gi://Soup?version=3.0';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -56,6 +57,10 @@ export default class MyWorkLogWidget extends Extension {
         if (this._monitorsId)
             Main.layoutManager.disconnect(this._monitorsId);
         this._monitorsId = 0;
+        this._endDrag(false);
+        for (const [obj, id] of this._restackIds ?? [])
+            obj.disconnect(id);
+        this._restackIds = [];
         this._releaseLock();
         this._lockBox?.destroy();
         this._lockBox = null;
@@ -120,20 +125,120 @@ export default class MyWorkLogWidget extends Extension {
         this._desk.add_child(row);
         this._desk.add_child(this._track);
 
-        // on the desktop: above the wallpaper, below every window
+        // on the desktop: just above the wallpaper and the desktop icons, below every app window
+        // (GNOME re-orders this layer whenever windows change, so it is put back in place each time)
         global.window_group.add_child(this._desk);
-        global.window_group.set_child_above_sibling(this._desk, Main.layoutManager._backgroundGroup);
+        this._restackIds = [
+            [global.display, global.display.connect('restacked', () => this._restack())],
+            [global.window_group, global.window_group.connect('child-added', () => this._restack())],
+        ];
+        this._pos = this._readPos();
         this._desk.connect('notify::width', () => this._place());
         this._monitorsId = Main.layoutManager.connect('monitors-changed', () => this._place());
+        this._setupDrag();
+        this._restack();
         this._place();
     }
 
+    _isDesktopIcons(actor) {
+        if (!(actor instanceof Meta.WindowActor))
+            return false;
+        const w = actor.get_meta_window();
+        return !!w && (w.get_gtk_application_id() === 'com.rastersoft.ding' ||
+            (w.get_title() ?? '').startsWith('Desktop Icons ') || (w.get_title() ?? '').includes('@!'));
+    }
+
+    _restack() {
+        const wg = global.window_group, d = this._desk;
+        if (!d || d.get_parent() !== wg)
+            return;
+        const kids = wg.get_children();
+        let anchor = Main.layoutManager._backgroundGroup;
+        for (const a of kids)
+            if (this._isDesktopIcons(a))
+                anchor = a;                                         // the top-most desktop-icons window
+        if (kids.indexOf(d) !== kids.indexOf(anchor) + 1)
+            wg.set_child_above_sibling(d, anchor);
+    }
+
+    // ---------------------------------------------------------------- drag to move
+    _setupDrag() {
+        const d = this._desk;
+        d.reactive = true;
+        d.connect('button-press-event', (a, e) => {
+            if (e.get_button() !== 1 || this._drag)
+                return Clutter.EVENT_PROPAGATE;
+            const [x, y] = e.get_coords();
+            this._drag = {dx: x - d.x, dy: y - d.y, grab: global.stage.grab(d)};
+            d.add_style_class_name('dragging');
+            return Clutter.EVENT_STOP;
+        });
+        d.connect('motion-event', (a, e) => {
+            if (!this._drag)
+                return Clutter.EVENT_PROPAGATE;
+            const [x, y] = e.get_coords();
+            d.set_position(Math.round(x - this._drag.dx), Math.round(y - this._drag.dy));
+            return Clutter.EVENT_STOP;
+        });
+        d.connect('button-release-event', () => {
+            if (!this._drag)
+                return Clutter.EVENT_PROPAGATE;
+            this._endDrag(true);
+            return Clutter.EVENT_STOP;
+        });
+    }
+
+    _endDrag(save) {
+        if (!this._drag)
+            return;
+        this._drag.grab?.dismiss();
+        this._drag = null;
+        this._desk?.remove_style_class_name('dragging');
+        if (save) {
+            const m = Main.layoutManager.primaryMonitor;
+            this._pos = {x: this._desk.x - m.x, y: this._desk.y - m.y};
+            this._place();                                          // keep it inside the screen …
+            this._savePos();                                        // … and remember where it ended up
+        }
+    }
+
+    // where I put it: saved as a point on the primary screen, kept inside the screen
     _place() {
         const lm = Main.layoutManager, m = lm.primaryMonitor;
-        if (!m || !this._desk)
+        if (!m || !this._desk || this._drag)
             return;
         const wa = lm.getWorkAreaForMonitor(lm.primaryIndex);     // screen minus the top bar / dock
-        this._desk.set_position(wa.x + wa.width - this._desk.width - 36, wa.y + 28);
+        const w = this._desk.width, h = this._desk.height;
+        let x = wa.x + wa.width - w - 36, y = wa.y + 28;              // first time: top right
+        if (this._pos) {
+            x = m.x + this._pos.x;
+            y = m.y + this._pos.y;
+        }
+        x = Math.max(wa.x, Math.min(x, wa.x + wa.width - w));
+        y = Math.max(wa.y, Math.min(y, wa.y + wa.height - h));
+        this._desk.set_position(Math.round(x), Math.round(y));
+    }
+
+    _posPath() {
+        return GLib.build_filenamev([GLib.get_user_config_dir(), 'my-work-log-widget.json']);
+    }
+
+    _readPos() {
+        try {
+            const [ok, bytes] = GLib.file_get_contents(this._posPath());
+            const p = ok && JSON.parse(new TextDecoder().decode(bytes));
+            return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? {x: p.x, y: p.y} : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    _savePos() {
+        const m = Main.layoutManager.primaryMonitor;
+        this._pos = {x: Math.round(this._desk.x - m.x), y: Math.round(this._desk.y - m.y)};
+        try {
+            GLib.file_set_contents(this._posPath(), JSON.stringify(this._pos));
+        } catch (e) {}
     }
 
     // ---------------------------------------------------------------- lock screen
@@ -172,6 +277,7 @@ export default class MyWorkLogWidget extends Extension {
         if (!this._desk)
             return;
         this._checkIdle();
+        this._restack();                                            // safety net, normally already in place
         const now = new Date();
         const h = now.getHours();
         this._time.text = `${h % 12 || 12}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${h < 12 ? 'AM' : 'PM'}`;

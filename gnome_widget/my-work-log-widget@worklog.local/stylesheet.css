@@ -23,3 +23,4 @@
 .mwl-lock { padding-top: 18px; spacing: 4px; }
 .mwl-lock-cd { font-size: 26px; font-weight: 700; color: #34d399; font-feature-settings: "tnum"; }
 .mwl-lock-sub { font-size: 15px; color: rgba(255, 255, 255, 0.82); }
+.mwl-desk.dragging { border-color: rgba(16, 185, 129, 0.7); background-color: rgba(15, 17, 21, 0.9); }

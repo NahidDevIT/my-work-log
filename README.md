@@ -100,7 +100,7 @@ Needs the sheet script **version 6**.
 ## Desktop + lock-screen widget (Linux, GNOME)
 
 `./gnome_widget/install.sh` adds a GNOME Shell extension that shows the clock and the workday countdown
-on the desktop (top right, under the windows) and under the clock on the lock screen. On Wayland it
+on the desktop (under the windows — drag it anywhere, it remembers the spot) and under the clock on the lock screen. On Wayland it
 appears after logging out and in once. When the PC is left alone it locks itself after the usual
 *Screen Blank* time, but the screen stays on so the countdown stays visible. `./gnome_widget/install.sh --remove`
 takes it away again.
