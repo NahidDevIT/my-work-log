@@ -1,0 +1,8 @@
+{
+  "uuid": "my-work-log-widget@worklog.local",
+  "name": "My Work Log widget",
+  "description": "Clock + workday countdown from My Work Log on the desktop and on the lock screen. The PC still locks after the Screen Blank time, but the screen stays on so the countdown stays visible.",
+  "shell-version": ["46", "47", "48", "49", "50"],
+  "session-modes": ["user", "unlock-dialog"],
+  "version": 1
+}

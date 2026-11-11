@@ -1,0 +1,25 @@
+/* My Work Log widget — desktop card + lock-screen lines */
+.mwl-desk {
+  background-color: rgba(15, 17, 21, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  padding: 18px 24px 20px;
+  spacing: 10px;
+  color: #e6e8ec;
+}
+.mwl-head { font-size: 11px; font-weight: 700; color: rgba(230, 232, 236, 0.62); }
+.mwl-row { spacing: 24px; }
+.mwl-sep { width: 1px; background-color: rgba(255, 255, 255, 0.10); }
+.mwl-time, .mwl-cd { font-size: 40px; font-weight: 800; font-feature-settings: "tnum"; }
+.mwl-time { color: #ffffff; }
+.mwl-cd { color: #10b981; }
+.mwl-cd.soon { color: #f59e0b; }
+.mwl-cd.over { color: #f97316; }
+.mwl-sub { font-size: 13px; color: rgba(230, 232, 236, 0.78); padding-top: 2px; }
+.mwl-track { height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.12); }
+.mwl-fill { height: 6px; border-radius: 3px; background-color: #10b981; }
+.mwl-fill.over { background-color: #f97316; }
+
+.mwl-lock { padding-top: 18px; spacing: 4px; }
+.mwl-lock-cd { font-size: 26px; font-weight: 700; color: #34d399; font-feature-settings: "tnum"; }
+.mwl-lock-sub { font-size: 15px; color: rgba(255, 255, 255, 0.82); }

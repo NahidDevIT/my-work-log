@@ -578,6 +578,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, (HERE / "ui" / "index.html").read_bytes(), "text/html")
         if path == "/api/dates":
             return self.send(200, list_dates())
+        if path == "/api/widget":                            # desktop / lock-screen widget (GNOME extension)
+            return self.send(200, workday())
         if path == "/api/status":
             local = self.is_local()
             return self.send(200, {**status(), "remote": remote_status(local), "view_url": view_url() if local else "",
